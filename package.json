@@ -18,6 +18,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "prepack": "npm run build",
     "start": "node bin/agenthub.js",
     "dev": "tsx src/index.ts",

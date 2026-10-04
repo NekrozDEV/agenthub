@@ -6,7 +6,6 @@
 .hub/config.json
 *.env.local
 node_modules/
-dist/
 *.log
 HANDOFF.md
 PROJECTS_MAP.md
