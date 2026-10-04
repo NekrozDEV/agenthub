@@ -14,7 +14,10 @@ import {
   getPreferredLanguage,
   setPreferredLanguage,
   SupportedLanguage,
+  listAllKnowledgeBases,
+  unregisterKnowledgeBase,
 } from './core/config.js';
+import { runMainMenu, runKbManager } from './ui/kb-menu.js';
 import { SecretVault } from './core/vault.js';
 import { LeakGuard } from './core/leak-guard.js';
 import { RepoMapGenerator } from './core/repomap.js';
@@ -96,6 +99,70 @@ export function buildCli(customLang?: SupportedLanguage): Command {
       setActiveKnowledgeBase(resolved);
       console.log(chalk.green(t.useSuccess(chalk.bold(resolved))));
       console.log(chalk.gray(t.useMcpHint));
+    });
+
+  // Knowledge Base Management Command Group
+  const kbCmd = program
+    .command('kb')
+    .alias('kbs')
+    .description(t.kbDesc);
+
+  kbCmd
+    .command('list')
+    .description(t.kbListDesc)
+    .action(() => {
+      const kbs = listAllKnowledgeBases();
+      if (kbs.length === 0) {
+        console.log(chalk.gray(lang === 'ru' ? 'Баз Знаний не найдено. Запустите: agenthub init' : 'No Knowledge Bases registered. Run: agenthub init'));
+        return;
+      }
+      console.log(orange(lang === 'ru' ? `Зарегистрированные Базы Знаний (${kbs.length}):` : `Registered Knowledge Bases (${kbs.length}):`));
+      for (const kb of kbs) {
+        const active = kb.isActive ? chalk.green(' [ACTIVE] ') : '          ';
+        const mark = kb.exists ? chalk.green('✓') : chalk.red('✕ (Missing)');
+        console.log(`  ${mark} ${active} ${chalk.bold(kb.name)} - ${chalk.gray(kb.path)}`);
+        if (kb.exists) {
+          console.log(`     ${chalk.gray(`Skills: ${kb.skillsCount} | MCPs: ${kb.mcpsCount} | Agents: ${kb.enabledAgents.join(', ') || 'none'}`)}`);
+        }
+      }
+    });
+
+  kbCmd
+    .command('use <path>')
+    .description(t.kbUseDesc)
+    .action((kbPath) => {
+      const resolved = path.resolve(kbPath);
+      if (!fs.existsSync(resolved) || !fs.existsSync(path.join(resolved, '.hub', 'config.json'))) {
+        console.log(chalk.red(lang === 'ru' ? `✕ Папка '${resolved}' не является инициализированной Базой Знаний!` : `✕ Folder '${resolved}' is not an initialized Knowledge Base!`));
+        return;
+      }
+      setActiveKnowledgeBase(resolved);
+      console.log(chalk.green(t.useSuccess(chalk.bold(resolved))));
+    });
+
+  kbCmd
+    .command('remove <path>')
+    .description(t.kbRemoveDesc)
+    .option('--delete-files', 'Also delete files from disk')
+    .action((kbPath, opts) => {
+      const resolved = path.resolve(kbPath);
+      unregisterKnowledgeBase(resolved, !!opts.deleteFiles);
+      console.log(chalk.green(lang === 'ru' ? `✓ База Знаний '${path.basename(resolved)}' удалена.` : `✓ Knowledge Base '${path.basename(resolved)}' removed.`));
+    });
+
+  kbCmd
+    .command('manage')
+    .description(t.kbDesc)
+    .action(async () => {
+      await runKbManager(lang);
+    });
+
+  kbCmd
+    .command('edit [path]')
+    .description(t.kbEditDesc)
+    .action(async (kbPath) => {
+      const resolved = kbPath ? path.resolve(kbPath) : resolveKnowledgeBasePath();
+      await runInitWizard(resolved);
     });
 
   // Global IDE Sync & Status Command
@@ -359,9 +426,9 @@ export function buildCli(customLang?: SupportedLanguage): Command {
   return program;
 }
 
-// Default action when no arguments provided: launch wizard
+// Default action when no arguments provided: launch interactive main menu
 if (process.argv.length <= 2) {
-  runInitWizard().catch(console.error);
+  runMainMenu().catch(console.error);
 } else {
   const program = buildCli();
   program.parse();

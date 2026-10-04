@@ -43,6 +43,11 @@ export interface CliStrings {
   repomapKbOpt: string;
   repomapSuccess: (file: string) => string;
   repomapProjectsFound: (count: number) => string;
+  kbDesc: string;
+  kbListDesc: string;
+  kbUseDesc: string;
+  kbRemoveDesc: string;
+  kbEditDesc: string;
   handoffDesc: string;
   handoffCreateDesc: string;
   handoffTaskOpt: string;
@@ -125,10 +130,15 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     auditLineLabel: 'Line:',
     auditFixed: (key) => `  ✓ Moved to Vault as '${key}' and redacted in file.`,
     auditFixTip: '\n💡 Run `agenthub audit --fix` to automatically move these keys to Vault!',
-    repomapDesc: 'Build compact project architecture map to save 80%+ tokens',
+    repomapDesc: 'Build compact project architecture map to preserve context window',
     repomapKbOpt: 'Path to Knowledge Base',
     repomapSuccess: (file) => `✓ Project map generated: ${file}`,
     repomapProjectsFound: (count) => `  Projects detected in /projects: ${count}`,
+    kbDesc: 'Manage registered Knowledge Bases (list, use, remove, edit)',
+    kbListDesc: 'List all registered Knowledge Bases and their status',
+    kbUseDesc: 'Switch active default Knowledge Base',
+    kbRemoveDesc: 'Remove a Knowledge Base from registry or disk',
+    kbEditDesc: 'Reconfigure an existing Knowledge Base',
     handoffDesc: 'Manage session handoffs and context between AI agents (Claude, Antigravity, DeepSeek, Windsurf, etc.)',
     handoffCreateDesc: 'Create task handoff checkpoint for the next agent',
     handoffTaskOpt: 'Current active task',
@@ -209,10 +219,15 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     auditLineLabel: 'Строка:',
     auditFixed: (key) => `  ✓ Перенесено в Сейф как '${key}' и заменено в файле.`,
     auditFixTip: '\n💡 Запустите `agenthub audit --fix` для автоматического переноса этих ключей в Сейф!',
-    repomapDesc: 'Построить компактную карту проектов для экономии токенов',
+    repomapDesc: 'Построить компактную карту проектов для сохранения контекста',
     repomapKbOpt: 'Путь к Базе Знаний',
     repomapSuccess: (file) => `✓ Карта проектов сформирована: ${file}`,
     repomapProjectsFound: (count) => `  Обнаружено проектов в /projects: ${count}`,
+    kbDesc: 'Управление зарегистрированными Базами Знаний (список, выбор, удаление, правка)',
+    kbListDesc: 'Показать список всех зарегистрированных Баз Знаний',
+    kbUseDesc: 'Сделать Базу Знаний активной по умолчанию',
+    kbRemoveDesc: 'Удалить Базу Знаний из реестра или с диска',
+    kbEditDesc: 'Перенастроить существующую Базу Знаний',
     handoffDesc: 'Управление эстафетой сессий и контекстом между разными AI (Claude, Antigravity, DeepSeek, Windsurf и др.)',
     handoffCreateDesc: 'Создать чекпоинт передачи задачи следующему агенту',
     handoffTaskOpt: 'Текущая задача',

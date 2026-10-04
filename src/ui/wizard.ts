@@ -29,6 +29,8 @@ interface WizardStrings {
   folderEmptyError: string;
   cancelMessage: string;
   agentsMessage: string;
+  skillsMessage: string;
+  mcpsMessage: string;
   globalSyncMessage: string;
   spinnerInit: string;
   spinnerRepoMap: string;
@@ -44,6 +46,8 @@ interface WizardStrings {
   summaryVault: string;
   summaryRepoMap: string;
   summaryMetaSkill: string;
+  summarySkillsCount: (count: number) => string;
+  summaryMcpsCount: (count: number) => string;
   outroSuccess: string;
   agentHints: Record<SupportedAgent, string>;
 }
@@ -55,6 +59,8 @@ const I18N: Record<SupportedLanguage, WizardStrings> = {
     folderEmptyError: 'Path cannot be empty',
     cancelMessage: 'Setup cancelled.',
     agentsMessage: 'Which AI systems and IDEs do you use? (Space to select, Enter to confirm):',
+    skillsMessage: 'Select starter engineering skills to install (or deselect all to skip):',
+    mcpsMessage: 'Select MCP tool templates to configure (or deselect all to skip):',
     globalSyncMessage:
       'Configure global IDE & AI integration (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) via MCP?',
     spinnerInit: 'Initializing Knowledge Base structure...',
@@ -70,8 +76,10 @@ const I18N: Record<SupportedLanguage, WizardStrings> = {
     summaryAgents: 'Active AI systems',
     summaryGlobalSync: 'Global MCP integrations',
     summaryVault: 'Zero-Leak Secret Vault',
-    summaryRepoMap: 'Project Map: PROJECTS_MAP.md (saves 80%+ tokens)',
+    summaryRepoMap: 'Project Map: PROJECTS_MAP.md (smart on-demand context)',
     summaryMetaSkill: 'Meta-Skill for agents: skills/agenthub-guide.md',
+    summarySkillsCount: (count) => `Installed Skills: ${count}`,
+    summaryMcpsCount: (count) => `Configured MCP Templates: ${count}`,
     outroSuccess:
       'All set! You can launch agents directly in this folder, OR work across any of your projects via AgentHub MCP!',
     agentHints: {
@@ -94,6 +102,8 @@ const I18N: Record<SupportedLanguage, WizardStrings> = {
     folderEmptyError: 'Путь не может быть пустым',
     cancelMessage: 'Настройка отменена.',
     agentsMessage: 'Какими AI-системами и IDE вы пользуетесь? (Пробел — выбор, Enter — подтвердить):',
+    skillsMessage: 'Выберите стартовые инженерные скилы (или снимите выбор, чтобы пропустить):',
+    mcpsMessage: 'Выберите шаблоны MCP-инструментов (или снимите выбор, чтобы пропустить):',
     globalSyncMessage:
       'Настроить глобальную интеграцию IDE и AI (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) через MCP?',
     spinnerInit: 'Инициализация структуры Базы Знаний...',
@@ -109,8 +119,10 @@ const I18N: Record<SupportedLanguage, WizardStrings> = {
     summaryAgents: 'Активные AI-системы',
     summaryGlobalSync: 'Глобальные MCP интеграции',
     summaryVault: 'Сейф секретов (Zero-Leak)',
-    summaryRepoMap: 'Карта проектов: PROJECTS_MAP.md (экономит 80%+ токенов)',
+    summaryRepoMap: 'Карта проектов: PROJECTS_MAP.md (умная загрузка контекста)',
     summaryMetaSkill: 'Мета-скил для агентов: skills/agenthub-guide.md',
+    summarySkillsCount: (count) => `Установлено скилов: ${count}`,
+    summaryMcpsCount: (count) => `Настроено MCP-шаблонов: ${count}`,
     outroSuccess:
       'Все готово! Вы можете запускать агентов прямо в этой папке, ЛИБО работать в любых ваших проектах через AgentHub MCP!',
     agentHints: {
@@ -199,7 +211,45 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     process.exit(0);
   }
 
-  // 3. Ask for Global IDE / MCP Registration
+  // 3. Optional Starter Skills Catalog
+  const skillOptions = DEFAULT_SKILLS.map((s) => ({
+    value: s.id,
+    label: s.title,
+    hint: s.description,
+  }));
+
+  const selectedSkillIds = (await p.multiselect({
+    message: t.skillsMessage,
+    options: skillOptions,
+    initialValues: ['agenthub-guide', 'frontend-design', 'cybersecurity-guidelines', 'git-workflow', 'code-review'],
+    required: false,
+  })) as string[];
+
+  if (p.isCancel(selectedSkillIds)) {
+    p.cancel(t.cancelMessage);
+    process.exit(0);
+  }
+
+  // 4. Optional Starter MCP Catalog
+  const mcpOptions = Object.values(DEFAULT_MCPS).map((m) => ({
+    value: m.id,
+    label: m.name,
+    hint: m.description,
+  }));
+
+  const selectedMcpIds = (await p.multiselect({
+    message: t.mcpsMessage,
+    options: mcpOptions,
+    initialValues: ['github', 'telegram', 'cloudflare', 'filesystem'],
+    required: false,
+  })) as string[];
+
+  if (p.isCancel(selectedMcpIds)) {
+    p.cancel(t.cancelMessage);
+    process.exit(0);
+  }
+
+  // 5. Ask for Global IDE / MCP Registration
   const enableGlobalSync = await p.confirm({
     message: t.globalSyncMessage,
     initialValue: true,
@@ -226,9 +276,13 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     }
   }
 
-  // Install default skills (including agenthub-guide.md meta-skill)
+  // Install selected skills (or agenthub-guide by default)
   const installedSkills: string[] = [];
-  for (const skill of DEFAULT_SKILLS) {
+  const skillsToInstall = DEFAULT_SKILLS.filter(
+    (skill) => selectedSkillIds.includes(skill.id) || skill.id === 'agenthub-guide'
+  );
+
+  for (const skill of skillsToInstall) {
     const skillPath = path.join(skillsDir, skill.filename);
     if (!fs.existsSync(skillPath)) {
       fs.writeFileSync(skillPath, skill.content, 'utf8');
@@ -236,14 +290,17 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     installedSkills.push(skill.filename);
   }
 
-  // Install default MCP configs
+  // Install selected MCP configs
   const installedMcps: string[] = [];
-  for (const [key, mcp] of Object.entries(DEFAULT_MCPS)) {
-    const mcpPath = path.join(mcpDir, `${key}.json`);
-    if (!fs.existsSync(mcpPath)) {
-      fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2), 'utf8');
+  for (const mcpId of selectedMcpIds) {
+    const mcp = DEFAULT_MCPS[mcpId];
+    if (mcp) {
+      const mcpPath = path.join(mcpDir, `${mcpId}.json`);
+      if (!fs.existsSync(mcpPath)) {
+        fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2), 'utf8');
+      }
+      installedMcps.push(mcpId);
     }
-    installedMcps.push(key);
   }
 
   // Initialize Vault and ensure gitignore
@@ -302,12 +359,13 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     orangeText(
       `${orangeBullet('•')} ${t.summaryFolder}: ${chalk.white.bold(kbPath)}\n` +
       `${orangeBullet('•')} ${t.summaryAgents}: ${chalk.white(synced.join(', '))}\n` +
+      `${orangeBullet('•')} ${t.summarySkillsCount(installedSkills.length)}: ${chalk.gray(installedSkills.join(', '))}\n` +
+      `${orangeBullet('•')} ${t.summaryMcpsCount(installedMcps.length)}: ${chalk.gray(installedMcps.join(', ') || 'none')}\n` +
       (globalSyncSummary.length > 0
         ? `${orangeBullet('•')} ${t.summaryGlobalSync}: ${chalk.white(globalSyncSummary.join(', '))}\n`
         : '') +
       `${orangeBullet('•')} ${t.summaryVault}: ${chalk.white(getVaultPath(kbPath))}\n` +
-      `${orangeBullet('•')} ${t.summaryRepoMap}\n` +
-      `${orangeBullet('•')} ${t.summaryMetaSkill}`
+      `${orangeBullet('•')} ${t.summaryRepoMap}`
     ),
     chalk.hex('#FF6600').bold(t.summaryTitle)
   );

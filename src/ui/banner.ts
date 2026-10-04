@@ -28,7 +28,7 @@ export function printBanner(): void {
     chalk.white.bold('Cross-Agent Memory') +
     chalk.gray(' • ') +
     o2('⚡ ') +
-    chalk.white.bold('80%+ Token Saver') +
+    chalk.white.bold('Smart Context Saver') +
     '\n'
   );
 }

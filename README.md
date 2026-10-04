@@ -12,8 +12,8 @@
 [![Node: >=18.0.0](https://img.shields.io/badge/Node->=18.0.0-green.svg)](https://nodejs.org/)
 [![MCP: Built-in](https://img.shields.io/badge/MCP-Server%20Built--in-blueviolet.svg)](https://modelcontextprotocol.io/)
 [![Zero-Leak Security](https://img.shields.io/badge/Security-Zero--Leak%20Vault-brightgreen.svg)]()
-[![Context Optimization](https://img.shields.io/badge/Tokens-80%25%2B%20Saved-orange.svg)]()
-[![GitHub: NekrozDEV](https://img.shields.io/badge/GitHub-NekrozDEV%2Fopen--agenthub-181717.svg?logo=github)](https://github.com/NekrozDEV/open-agenthub)
+[![Context Optimization](https://img.shields.io/badge/Context-Smart%20On--Demand-orange.svg)]()
+[![GitHub: NekrozDEV](https://img.shields.io/badge/GitHub-NekrozDEV%2Fagenthub-181717.svg?logo=github)](https://github.com/NekrozDEV/agenthub)
 
 <p align="center">
   <b>Universal Knowledge Base, Zero-Leak Security Vault, Context Optimizer & Multi-IDE MCP Server for AI Coding Agents</b>
@@ -27,19 +27,19 @@
 
 <a id="english-version"></a>
 
-## 🌟 Why OpenAgentHub?
+## 🌟 Why AgentHub?
 
-Modern AI software development is suffering from **severe fragmentation, token waste, and security risks**:
+Modern AI software development is suffering from **severe fragmentation, token bloat, and security risks**:
 
 1. **Rule & Configuration Chaos**: Every AI tool invents its own rule format — Claude Code requires `CLAUDE.md`, Windsurf uses `.windsurfrules`, Cursor relies on `.cursorrules`, Cline needs `.clinerules`, Continue uses `config.yaml`, and Antigravity uses proprietary skill directories. Maintaining them across multiple projects is a nightmare.
-2. **Brutal Context & Token Waste (80%+ Burn)**: Shoveling hundreds of lines of instructions and tools into every prompt burns tens of thousands of tokens per turn, degrades model attention, slows response times, and blows through API budgets.
+2. **Brutal Context & Token Bloat**: Shoveling hundreds of lines of instructions and tools into every prompt burns unnecessary tokens per turn, degrades model attention, slows response times, and blows through API budgets.
 3. **Catastrophic Secret Leaks**: Developers accidentally paste API keys, database credentials, and production tokens into agent prompts or commit them into rule files and git history.
 4. **Context Loss on Agent Handoff**: When your Claude Code session runs out of quota or context limit, switching over to Cursor, Antigravity, or DeepSeek forces you to re-explain the entire task, architecture, and current progress from scratch.
 
-### 💡 The Solution: OpenAgentHub
-**OpenAgentHub** unifies everything into **one smart, secure, and shared Knowledge Base**:
+### 💡 The Solution: AgentHub
+**AgentHub** unifies everything into **one smart, secure, and shared Knowledge Base**:
 - **Zero-Leak Vault**: Secrets stay on your machine, never leaked into model contexts or git repositories.
-- **80%+ Token Savings**: Compact on-demand indexes instead of dumping megabytes of documentation.
+- **Smart Context Preservation**: Compact on-demand indexes instead of dumping megabytes of documentation.
 - **Cross-Agent Handoff**: Seamlessly pass tasks and session state between different AI models and IDEs.
 - **Built-in Stdio MCP Server**: 9 native tools and resources available directly inside any MCP-compatible IDE.
 - **Global IDE Sync**: Automatically configure all your installed editors with a single command.
@@ -126,9 +126,9 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 * Protected with strict filesystem permissions (`0600`) and **guaranteed Git exclusion** (`.gitignore`).
 * Agents only receive boolean confirmations or masked snippets (`sk-...def`), preventing prompt injection leaks.
 
-### 3. 📉 80%+ Context Token Reduction
+### 3. 📉 Smart On-Demand Context Loading
 * Traditional setups inject thousands of lines of documentation on every interaction.
-* OpenAgentHub provides a lightweight Table of Contents (~200 tokens) and lets the AI pull detailed documentation only when directly relevant.
+* AgentHub provides a lightweight Table of Contents (~200 tokens) and lets the AI pull detailed documentation only when directly relevant, avoiding unnecessary upfront token burn.
 
 ### 4. 🔄 Cross-Agent Handoff Relay
 * Running low on credits or hit token limits in one AI model?
@@ -168,6 +168,7 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 | `agenthub init [dir]` | Launch the interactive bilingual setup wizard |
 | `agenthub serve-mcp [--kb <path>]` | Run the built-in Stdio MCP Server for IDEs |
 | `agenthub use <dir>` | Set active default Knowledge Base globally across the OS |
+| `agenthub kb [list\|use\|remove\|edit]` | Manage, switch, edit, or delete registered Knowledge Bases |
 | `agenthub global [--all]` | Check and sync global IDE and MCP configurations |
 | `agenthub sync [-g, --global]` | Synchronize adapters, RepoMap, skills, and IDE configs |
 | `agenthub audit [--fix]` | Run Leak Guard secret audit with optional auto-migration to Vault |
@@ -248,13 +249,13 @@ If **AgentHub** saves your tokens, time, and simplifies your multi-agent workflo
 В современной AI-разработке царит хаос и перерасход ресурсов:
 
 1. **Зоопарк правил и конфигов**: Каждому инструменту нужно всё объяснять заново. У Claude Code свой `CLAUDE.md`, у Windsurf `.windsurfrules`, у Cursor `.cursorrules`, у Continue `config.yaml`, у Cline `.clinerules`, у Antigravity папка скилов, у DeepSeek системные промпты. Поддерживать их вручную для десятка проектов невозможно.
-2. **Раздувание контекста (Token Burn 80%+)**: Загрузка мегабайтов инструкций съедает десятки тысяч токенов на старте каждого диалога, замедляет ответы, размывает внимание модели и опустошает баланс API.
+2. **Раздувание контекста (Token Bloat)**: Загрузка мегабайтов инструкций съедает тысячи лишних токенов на старте каждого диалога, замедляет ответы, размывает внимание модели и опустошает баланс API.
 3. **Утечки секретов**: API-ключи, токены баз данных и пароли постоянно случайно попадают в промпты, контексты чатов и публичные коммиты.
 4. **Потеря контекста при смене AI**: Лимиты Claude Code закончились? При переходе в Cursor или Antigravity приходится заново объяснять всю архитектуру, что уже сделано и что осталось.
 
-### 🌟 Как OpenAgentHub решает эти проблемы:
+### 🌟 Как AgentHub решает эти проблемы:
 - 🛡️ **Сейф Zero-Leak**: Все секреты хранятся локально в изолированном файле под защитой прав `0600` и **никогда не попадают в контекст модели или Git**.
-- 📉 **Экономия более 80% токенов**: Модели видят компактное оглавление и запрашивают полный текст навыка только тогда, когда это действительно нужно для задачи.
+- 📉 **Умная экономия контекста**: Модели видят компактное оглавление и запрашивают полный текст навыка только тогда, когда это действительно нужно для задачи.
 - 🔄 **Эстафета между AI (Cross-Agent Handoff)**: Мгновенная передача задачи от одной модели к другой без потери контекста.
 - 🔌 **Встроенный Stdio MCP Server**: 9 нативных инструментов и 4 ресурса доступны прямо внутри вашей любимой IDE.
 - 🌐 **Глобальная синхронизация IDE**: Одной командой связывает все редакторы на вашем компьютере с Базой Знаний.
@@ -342,8 +343,8 @@ npm start
 * Файл защищен правами `0600` и **гарантированно исключен из Git**.
 * Агенты видят только факт наличия ключа или маскированное значение (`sk-...abc`), исключая утечки через промпт-инъекции.
 
-### 3. 📉 Экономия более 80% токенов
-* Вместо загрузки тяжелых инструкций в каждый запрос агенты получают компактное оглавление (~200 токенов) и подгружают детали только при необходимости.
+### 3. 📉 Умная экономия контекста (On-Demand Loading)
+* Вместо загрузки тяжелых инструкций в каждый запрос агенты получают компактное оглавление (~200 токенов) и подгружают детали только при необходимости, предотвращая раздувание контекста.
 
 ### 4. 🔄 Cross-Agent Handoff («Эстафета» между AI)
 * Закончился контекст или лимит в одном агенте?
@@ -383,6 +384,7 @@ npm start
 | `agenthub init [dir]` | Интерактивный двуязычный мастер настройки |
 | `agenthub serve-mcp [--kb <path>]` | Запуск Stdio MCP сервера для IDE и агентов |
 | `agenthub use <dir>` | Установить активную Базу Знаний по умолчанию для всей системы |
+| `agenthub kb [list\|use\|remove\|edit]` | Управление, переключение, редактирование и удаление Баз Знаний |
 | `agenthub global [--all]` | Проверить и синхронизировать настройки IDE |
 | `agenthub sync [-g, --global]` | Синхронизация адаптеров, карты проектов, скилов и IDE |
 | `agenthub audit [--fix]` | Проверка на утечки ключей (Leak Guard) с авто-переносом в Сейф |

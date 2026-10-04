@@ -199,6 +199,91 @@ export function getActiveGlobalKnowledgeBase(): string | null {
   return null;
 }
 
+export interface KnowledgeBaseInfo {
+  path: string;
+  name: string;
+  exists: boolean;
+  isActive: boolean;
+  enabledAgents: SupportedAgent[];
+  skillsCount: number;
+  mcpsCount: number;
+}
+
+export function listAllKnowledgeBases(): KnowledgeBaseInfo[] {
+  const globalConf = loadGlobalConfig();
+  const activePath = globalConf.activeKnowledgeBase ? path.resolve(globalConf.activeKnowledgeBase) : null;
+  const list: KnowledgeBaseInfo[] = [];
+
+  const rawPaths = [...(globalConf.knownKnowledgeBases || [])];
+  if (activePath && !rawPaths.includes(activePath)) {
+    rawPaths.unshift(activePath);
+  }
+
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, '.hub', 'config.json')) && !rawPaths.includes(cwd)) {
+    rawPaths.push(cwd);
+  }
+
+  const seen = new Set<string>();
+  for (const raw of rawPaths) {
+    const resolved = path.resolve(raw);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+
+    const exists = fs.existsSync(resolved) && fs.existsSync(path.join(resolved, '.hub', 'config.json'));
+    const config = exists ? loadConfig(resolved) : null;
+
+    let skillsCount = 0;
+    let mcpsCount = 0;
+    if (exists) {
+      const skillsDir = path.join(resolved, 'skills');
+      if (fs.existsSync(skillsDir)) {
+        skillsCount = fs.readdirSync(skillsDir).filter((f) => f.endsWith('.md')).length;
+      }
+      const mcpDir = path.join(resolved, 'mcp');
+      if (fs.existsSync(mcpDir)) {
+        mcpsCount = fs.readdirSync(mcpDir).filter((f) => f.endsWith('.json')).length;
+      }
+    }
+
+    list.push({
+      path: resolved,
+      name: path.basename(resolved),
+      exists,
+      isActive: resolved === activePath,
+      enabledAgents: config?.enabledAgents || [],
+      skillsCount,
+      mcpsCount,
+    });
+  }
+
+  return list;
+}
+
+export function unregisterKnowledgeBase(kbPath: string, deleteFiles = false): { success: boolean; wasActive: boolean } {
+  const resolved = path.resolve(kbPath);
+  const globalConf = loadGlobalConfig();
+  const wasActive = globalConf.activeKnowledgeBase === resolved;
+
+  globalConf.knownKnowledgeBases = (globalConf.knownKnowledgeBases || []).filter(
+    (p) => path.resolve(p) !== resolved
+  );
+
+  if (wasActive) {
+    globalConf.activeKnowledgeBase = globalConf.knownKnowledgeBases[0] || undefined;
+  }
+
+  saveGlobalConfig(globalConf);
+
+  if (deleteFiles && fs.existsSync(resolved)) {
+    try {
+      fs.rmSync(resolved, { recursive: true, force: true });
+    } catch {}
+  }
+
+  return { success: true, wasActive };
+}
+
 export function resolveKnowledgeBasePath(explicitPath?: string): string {
   // 1. Explicit path parameter
   if (explicitPath) {
