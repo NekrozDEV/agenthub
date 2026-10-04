@@ -1,19 +1,34 @@
 {
   "name": "open-agenthub",
   "version": "0.1.0",
-  "description": "Universal Knowledge Base & Zero-Leak Security Hub for AI Agents (Antigravity, Claude Code, DeepSeek, Hermes, OpenCode, Cursor)",
+  "description": "Universal Knowledge Base & Zero-Leak Security Hub for AI Agents (Antigravity, Claude Code, DeepSeek, Hermes, OpenCode, Cursor, Windsurf)",
   "main": "dist/index.js",
   "bin": {
     "agenthub": "bin/agenthub.js",
     "open-agenthub": "bin/agenthub.js",
     "agenthub-mcp": "bin/agenthub-mcp.js"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
     "start": "node bin/agenthub.js",
     "dev": "tsx src/index.ts",
     "test": "node tests/mcp.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NekrozDEV/open-agenthub.git"
+  },
+  "homepage": "https://github.com/NekrozDEV/open-agenthub#readme",
+  "bugs": {
+    "url": "https://github.com/NekrozDEV/open-agenthub/issues"
   },
   "keywords": [
     "ai",
@@ -26,10 +41,11 @@
     "hermes",
     "opencode",
     "cursor",
+    "windsurf",
     "context-optimization",
     "zero-leak"
   ],
-  "author": "",
+  "author": "Nekroz",
   "license": "MIT",
   "dependencies": {
     "@clack/prompts": "^0.9.1",

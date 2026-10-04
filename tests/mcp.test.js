@@ -7,10 +7,11 @@ import { CursorAdapter } from '../dist/adapters/cursor.js';
 import { ClineAdapter } from '../dist/adapters/cline.js';
 import { ContinueAdapter } from '../dist/adapters/continue.js';
 import { WindsurfAdapter } from '../dist/adapters/windsurf.js';
-import { DEFAULT_CONFIG, loadConfig, saveConfig } from '../dist/core/config.js';
+import { DEFAULT_CONFIG, loadConfig, saveConfig, getPreferredLanguage, setPreferredLanguage, loadGlobalConfig } from '../dist/core/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cliPath = path.join(__dirname, '..', 'dist', 'mcp', 'cli.js');
+const mainBinPath = path.join(__dirname, '..', 'bin', 'agenthub.js');
 const repoRoot = path.join(__dirname, '..');
 
 // 1. Verify build exists
@@ -117,6 +118,39 @@ try {
 } finally {
   if (fs.existsSync(tempConfigDir)) fs.rmSync(tempConfigDir, { recursive: true, force: true });
 }
+
+// 4.6. Test AgentHub CLI bilingual commands, flags, and global language resolution
+console.log('Test 3.6: Testing AgentHub CLI bilingual execution (--lang en/ru, lang command)...');
+const enCliHelp = execSync(`node "${mainBinPath}" --lang en --help`, { encoding: 'utf8' });
+if (!enCliHelp.includes('Universal Knowledge Base') || !enCliHelp.includes('Interface language') || !enCliHelp.includes('Zero-Leak Vault')) {
+  throw new Error(`Expected English CLI help output, got: ${enCliHelp}`);
+}
+
+const ruCliHelp = execSync(`node "${mainBinPath}" --lang ru --help`, { encoding: 'utf8' });
+if (!ruCliHelp.includes('Единая База Знаний') || !ruCliHelp.includes('Язык интерфейса') || !ruCliHelp.includes('Сейф')) {
+  throw new Error(`Expected Russian CLI help output, got: ${ruCliHelp}`);
+}
+
+const langCheckOutput = execSync(`node "${mainBinPath}" lang`, { encoding: 'utf8' });
+if (!langCheckOutput.includes('Current interface language') && !langCheckOutput.includes('Текущий язык интерфейса')) {
+  throw new Error(`Expected lang status output, got: ${langCheckOutput}`);
+}
+console.log('✓ AgentHub CLI bilingual support (--lang en/ru, lang command, help output) verified');
+
+// 4.7. Test README.md bilingual navigation and package.json metadata
+console.log('Test 3.7: Testing README.md bilingual anchors and package.json metadata...');
+const readmeContent = fs.readFileSync(path.join(repoRoot, 'README.md'), 'utf8');
+if (!readmeContent.includes('<a id="-openagenthub">') || !readmeContent.includes('<a id="openagenthub">')) {
+  throw new Error('README.md missing top anchor <a id="-openagenthub"> or <a id="openagenthub">');
+}
+if (!readmeContent.includes('openagenthub-на-русском') || !readmeContent.includes('-openagenthub-на-русском')) {
+  throw new Error('README.md missing Russian section anchor tags');
+}
+const pkgJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+if (!pkgJson.repository?.url || !pkgJson.homepage || !pkgJson.files || !pkgJson.bin?.['open-agenthub']) {
+  throw new Error('package.json missing repository, homepage, files, or open-agenthub bin');
+}
+console.log('✓ README.md navigation anchors and package.json publishing metadata verified');
 
 // 5. Test Live MCP Server Protocol and all 9 tools
 console.log('Test 4: Testing live MCP Server protocol over stdio...');

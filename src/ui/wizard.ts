@@ -11,6 +11,8 @@ import {
   loadConfig,
   getVaultPath,
   setActiveKnowledgeBase,
+  loadGlobalConfig,
+  getPreferredLanguage,
 } from '../core/config.js';
 import { SecretVault } from '../core/vault.js';
 import { LeakGuard } from '../core/leak-guard.js';
@@ -133,7 +135,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   // 0. Language selection
   const defaultDir = initialTargetDir || process.cwd();
   const existingConfig = loadConfig(defaultDir);
-  const initialLang: SupportedLanguage = existingConfig?.language || 'en';
+  const initialLang: SupportedLanguage = existingConfig?.language || getPreferredLanguage(defaultDir);
 
   const langChoice = await p.select({
     message: 'Select language / Выберите язык:',
@@ -177,10 +179,18 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     hint: t.agentHints[key] || AGENT_INFO[key].description,
   }));
 
+  const initialAgents = (existingConfig?.enabledAgents as SupportedAgent[]) || [
+    'antigravity',
+    'deepseek-hermes',
+    'opencode',
+    'windsurf',
+    'cursor',
+  ];
+
   const selectedAgents = await p.multiselect({
     message: t.agentsMessage,
     options: agentOptions,
-    initialValues: ['antigravity', 'deepseek-hermes', 'opencode', 'windsurf', 'cursor'],
+    initialValues: initialAgents,
     required: true,
   });
 

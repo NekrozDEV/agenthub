@@ -31,6 +31,7 @@ export interface HubConfig {
 }
 
 export interface GlobalConfig {
+  language?: SupportedLanguage;
   activeKnowledgeBase?: string;
   knownKnowledgeBases: string[];
   lastSynced?: string;
@@ -134,6 +135,11 @@ export function saveConfig(basePath: string, config: HubConfig): void {
   }
   fs.writeFileSync(getHubConfigPath(basePath), JSON.stringify(config, null, 2), 'utf8');
   setActiveKnowledgeBase(basePath);
+  if (config.language) {
+    const globalConf = loadGlobalConfig();
+    globalConf.language = config.language;
+    saveGlobalConfig(globalConf);
+  }
 }
 
 // Global registry helpers (enables running agents anywhere)
@@ -241,4 +247,65 @@ export function getAgentHubBinPath(): string {
 export function getAgentHubMcpBinPath(): string {
   const currentFile = fileURLToPath(import.meta.url);
   return path.resolve(path.dirname(currentFile), '../../bin/agenthub-mcp.js');
+}
+
+/**
+ * Resolves the user's preferred interface language (en or ru)
+ * Priority: --lang CLI argument > AGENTHUB_LANG env > local .hub/config.json > ~/.agenthub/config.json > system locale > 'en'
+ */
+export function getPreferredLanguage(customPath?: string): SupportedLanguage {
+  // 1. Explicit command line option
+  const langArgIdx = process.argv.findIndex((arg) => arg === '--lang');
+  if (langArgIdx !== -1 && process.argv[langArgIdx + 1]) {
+    const val = process.argv[langArgIdx + 1].toLowerCase();
+    if (val === 'ru' || val === 'en') return val as SupportedLanguage;
+  }
+
+  // 2. Environment variable
+  if (process.env.AGENTHUB_LANG === 'ru' || process.env.AGENTHUB_LANG === 'en') {
+    return process.env.AGENTHUB_LANG as SupportedLanguage;
+  }
+
+  // 3. Local knowledge base config
+  try {
+    const kbPath = customPath || resolveKnowledgeBasePath();
+    const local = loadConfig(kbPath);
+    if (local?.language) return local.language;
+  } catch {}
+
+  // 4. Global agenthub config
+  try {
+    const globalConf = loadGlobalConfig();
+    if (globalConf.language) return globalConf.language;
+    if (globalConf.activeKnowledgeBase) {
+      const activeConf = loadConfig(globalConf.activeKnowledgeBase);
+      if (activeConf?.language) return activeConf.language;
+    }
+  } catch {}
+
+  // 5. System locale check
+  const envLang = process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || '';
+  if (envLang.toLowerCase().startsWith('ru')) {
+    return 'ru';
+  }
+
+  return 'en';
+}
+
+/**
+ * Persists the preferred language to global config and active/local KB
+ */
+export function setPreferredLanguage(lang: SupportedLanguage, kbPath?: string): void {
+  const globalConf = loadGlobalConfig();
+  globalConf.language = lang;
+  saveGlobalConfig(globalConf);
+
+  try {
+    const targetPath = kbPath || resolveKnowledgeBasePath();
+    const localConfig = loadConfig(targetPath);
+    if (localConfig) {
+      localConfig.language = lang;
+      saveConfig(targetPath, localConfig);
+    }
+  } catch {}
 }

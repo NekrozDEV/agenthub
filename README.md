@@ -1,3 +1,7 @@
+<a id="-openagenthub"></a>
+<a id="openagenthub"></a>
+<a id="english-version"></a>
+
 # 🚀 OpenAgentHub
 
 <div align="center">
@@ -172,6 +176,7 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 | `agenthub handoff prompt <Agent>` | Generate resumption prompt for a new AI session |
 | `agenthub vault set <KEY> <VALUE>` | Store a secret securely in the local Zero-Leak Vault |
 | `agenthub vault list` | List stored secret keys (values masked) |
+| `agenthub lang [en\|ru]` | Display or switch CLI interface language (en/ru) |
 | `agenthub team status` | Verify Git status and leak safety |
 | `agenthub team commit "msg"` | Safe commit of shared skills with pre-flight leak check |
 
@@ -369,6 +374,7 @@ npm start
 | `agenthub handoff prompt <Agent>` | Генерация стартового промпта для нового агента |
 | `agenthub vault set <KEY> <VALUE>` | Сохранение секрета в защищенный локальный Сейф |
 | `agenthub vault list` | Просмотр списка защищенных ключей (значения скрыты) |
+| `agenthub lang [en\|ru]` | Показать или переключить язык интерфейса CLI (en/ru) |
 | `agenthub team status` | Проверка статуса Git и безопасности от утечек |
 | `agenthub team commit "msg"` | Безопасный коммит общих скилов с pre-flight проверкой |
 
