@@ -53,8 +53,11 @@ Modern AI software development is suffering from **severe fragmentation, token b
 You can install **AgentHub** globally on your system directly from GitHub in a single command:
 
 ```bash
-# Install globally from GitHub repository
-npm install -g git+https://github.com/NekrozDEV/agenthub.git
+# Recommended: Install globally from GitHub archive (works reliably on Windows, macOS, Linux)
+npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+
+# Or install via Git repository (add --force if overwriting an existing link or install):
+npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
 
 # Run the interactive setup wizard in any directory
 agenthub init
@@ -278,8 +281,11 @@ If **AgentHub** saves your tokens, time, and simplifies your multi-agent workflo
 Вы можете установить **AgentHub** глобально в систему напрямую из официального GitHub-репозитория одной командой:
 
 ```bash
-# Установка утилиты глобально
-npm install -g git+https://github.com/NekrozDEV/agenthub.git
+# Рекомендуется: Быстрая установка напрямую из архива GitHub (Windows, macOS, Linux)
+npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+
+# Либо через Git (если обновляете существующую установку, добавьте --force):
+npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
 
 # Запуск интерактивного мастера настройки в любой папке
 agenthub init

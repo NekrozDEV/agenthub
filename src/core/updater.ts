@@ -267,12 +267,13 @@ export async function performUpdate(lang: SupportedLanguage = 'en'): Promise<{ s
     }
   }
 
-  // Global npm install from GitHub repository
-  console.log(chalk.gray(`npm install -g git+https://github.com/${GITHUB_REPO}.git`));
+  // Global npm install from GitHub archive (robust on all OSes, prevents Windows junction bugs and overwrites old links safely)
+  const tarballUrl = `https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz`;
+  console.log(chalk.gray(`npm install -g --force ${tarballUrl}`));
   const isWindows = process.platform === 'win32';
   const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 
-  const res = spawnSync(npmCmd, ['install', '-g', `git+https://github.com/${GITHUB_REPO}.git`], {
+  const res = spawnSync(npmCmd, ['install', '-g', '--force', tarballUrl], {
     stdio: 'inherit',
     shell: true,
   });
