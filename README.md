@@ -222,8 +222,10 @@ If **AgentHub** saves your tokens, time, and simplifies your multi-agent workflo
     <br/>
     <a href="https://finance.ozon.ru/apps/sbp/ozonbankpay/01a03f54-75c0-7054-9a9e-bf20c44547ac"><img src="assets/ozon_sbp_qr.png" width="180" alt="Ozon Bank SBP QR Code" /></a>
 
-- 🌍 **International / Crypto**:
-  - Telegram CryptoBot / USDT (TRC-20 & TON): *Coming soon*
+- 🌍 **International / Crypto (Any coin, anonymous)**:
+  - **Pay via Telegram CryptoBot**: [t.me/send?start=IVj4UTox7JMD](https://t.me/send?start=IVj4UTox7JMD)
+  - [![Donate via CryptoBot](https://img.shields.io/badge/Donate-CryptoBot-2EA5FF?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/send?start=IVj4UTox7JMD)
+  - Supports: **USDT, TON, SOL, TRX, BTC, ETH, DOGE, LTC, BNB, USDC, XAUT**
 
 ---
 
@@ -470,8 +472,10 @@ npm test
     <br/>
     <a href="https://finance.ozon.ru/apps/sbp/ozonbankpay/01a03f54-75c0-7054-9a9e-bf20c44547ac"><img src="assets/ozon_sbp_qr.png" width="180" alt="QR-код Ozon Банк СБП" /></a>
 
-- 🌍 **Международные переводы / Крипта**:
-  - Telegram CryptoBot / USDT: *Настраивается*
+- 🌍 **Международные переводы / Криптовалюта (Любая монета, анонимно)**:
+  - **Оплата через Telegram CryptoBot**: [t.me/send?start=IVj4UTox7JMD](https://t.me/send?start=IVj4UTox7JMD)
+  - [![Оплатить через CryptoBot](https://img.shields.io/badge/Оплатить-CryptoBot-2EA5FF?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/send?start=IVj4UTox7JMD)
+  - Поддерживает: **USDT, TON, SOL, TRX, BTC, ETH, DOGE, LTC, BNB, USDC, XAUT**
 
 ---
 
