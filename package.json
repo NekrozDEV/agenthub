@@ -1,0 +1,44 @@
+{
+  "name": "open-agenthub",
+  "version": "0.1.0",
+  "description": "Universal Knowledge Base & Zero-Leak Security Hub for AI Agents (Antigravity, Claude Code, DeepSeek, Hermes, OpenCode, Cursor)",
+  "main": "dist/index.js",
+  "bin": {
+    "agenthub": "bin/agenthub.js",
+    "open-agenthub": "bin/agenthub.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node bin/agenthub.js",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": [
+    "ai",
+    "mcp",
+    "skills",
+    "agent",
+    "claude-code",
+    "antigravity",
+    "deepseek",
+    "hermes",
+    "opencode",
+    "cursor",
+    "context-optimization",
+    "zero-leak"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "fast-glob": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

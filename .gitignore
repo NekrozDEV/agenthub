@@ -1,0 +1,12 @@
+# AgentHub Security Vault & Runtime
+.hub/vault.env
+.hub/*.key
+.hub/secrets/
+.hub/memory/
+.hub/config.json
+*.env.local
+node_modules/
+dist/
+*.log
+HANDOFF.md
+PROJECTS_MAP.md
