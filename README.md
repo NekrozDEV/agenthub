@@ -212,6 +212,21 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 
 ---
 
+## ☕ Support & Donations
+
+If **AgentHub** saves your tokens, time, and simplifies your multi-agent workflow, consider supporting the creator!
+
+- 🇷🇺 **From Russian Banks / SBP (Zero fee, any bank)**:
+  - **Direct Payment Link**: [Ozon Bank Pay / SBP (Recipient: Евгений В.)](https://finance.ozon.ru/apps/sbp/ozonbankpay/01a03f54-75c0-7054-9a9e-bf20c44547ac)
+  - **Scan QR Code with your Banking App**:
+    <br/>
+    <a href="https://finance.ozon.ru/apps/sbp/ozonbankpay/01a03f54-75c0-7054-9a9e-bf20c44547ac"><img src="assets/ozon_sbp_qr.png" width="180" alt="Ozon Bank SBP QR Code" /></a>
+
+- 🌍 **International / Crypto**:
+  - Telegram CryptoBot / USDT (TRC-20 & TON): *Coming soon*
+
+---
+
 <br/>
 
 <a id="openagenthub-на-русском"></a>
@@ -442,6 +457,21 @@ npm start
 npm run build
 npm test
 ```
+
+---
+
+## ☕ Поддержать автора / Донаты
+ 
+Если **AgentHub** бережёт ваши токены, время и нервы — автор (Евгений В.) будет очень благодарен за любую поддержку проекта! Любой донат мотивирует развивать экосистему дальше.
+
+- 🇷🇺 **Для пользователей из России (любой банк, СБП без комиссии)**:
+  - **Прямая ссылка для перевода**: [Пополнение без комиссии через Ozon Банк / СБП (Получатель: Евгений В.)](https://finance.ozon.ru/apps/sbp/ozonbankpay/01a03f54-75c0-7054-9a9e-bf20c44547ac)
+  - **QR-код для быстрой оплаты из мобильного приложения любого банка**:
+    <br/>
+    <a href="https://finance.ozon.ru/apps/sbp/ozonbankpay/01a03f54-75c0-7054-9a9e-bf20c44547ac"><img src="assets/ozon_sbp_qr.png" width="180" alt="QR-код Ozon Банк СБП" /></a>
+
+- 🌍 **Международные переводы / Крипта**:
+  - Telegram CryptoBot / USDT: *Настраивается*
 
 ---
 

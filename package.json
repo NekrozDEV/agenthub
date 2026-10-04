@@ -1,5 +1,5 @@
 {
-  "name": "open-agenthub",
+  "name": "agenthub",
   "version": "0.1.0",
   "description": "Universal Knowledge Base & Zero-Leak Security Hub for AI Agents (Antigravity, Claude Code, DeepSeek, Hermes, OpenCode, Cursor, Windsurf)",
   "main": "dist/index.js",
@@ -11,6 +11,7 @@
   "files": [
     "dist",
     "bin",
+    "assets",
     "README.md",
     "LICENSE"
   ],
@@ -24,11 +25,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/NekrozDEV/open-agenthub.git"
+    "url": "https://github.com/NekrozDEV/agenthub.git"
   },
-  "homepage": "https://github.com/NekrozDEV/open-agenthub#readme",
+  "homepage": "https://github.com/NekrozDEV/agenthub#readme",
   "bugs": {
-    "url": "https://github.com/NekrozDEV/open-agenthub/issues"
+    "url": "https://github.com/NekrozDEV/agenthub/issues"
   },
   "keywords": [
     "ai",
