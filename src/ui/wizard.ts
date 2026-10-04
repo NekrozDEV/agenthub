@@ -8,10 +8,12 @@ import {
   AGENT_INFO,
   saveConfig,
   getVaultPath,
+  setActiveKnowledgeBase,
 } from '../core/config.js';
 import { SecretVault } from '../core/vault.js';
 import { LeakGuard } from '../core/leak-guard.js';
 import { RepoMapGenerator } from '../core/repomap.js';
+import { GlobalSyncManager } from '../core/global-sync.js';
 import { DEFAULT_SKILLS } from '../templates/default-skills.js';
 import { DEFAULT_MCPS } from '../templates/default-mcps.js';
 import { syncAdapters } from '../adapters/index.js';
@@ -46,13 +48,25 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   }));
 
   const selectedAgents = await p.multiselect({
-    message: 'Какими AI-системами вы пользуетесь? (Пробел — выбор, Enter — подтвердить):',
+    message: 'Какими AI-системами и IDE вы пользуетесь? (Пробел — выбор, Enter — подтвердить):',
     options: agentOptions,
-    initialValues: ['antigravity', 'deepseek-hermes', 'opencode'],
+    initialValues: ['antigravity', 'deepseek-hermes', 'opencode', 'windsurf', 'cursor'],
     required: true,
   });
 
   if (p.isCancel(selectedAgents)) {
+    p.cancel('Настройка отменена.');
+    process.exit(0);
+  }
+
+  // 3. Ask for Global IDE / MCP Registration
+  const enableGlobalSync = await p.confirm({
+    message:
+      'Настроить глобальную интеграцию IDE и AI (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) через MCP?',
+    initialValue: true,
+  });
+
+  if (p.isCancel(enableGlobalSync)) {
     p.cancel('Настройка отменена.');
     process.exit(0);
   }
@@ -73,7 +87,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     }
   }
 
-  // Install default skills
+  // Install default skills (including agenthub-guide.md meta-skill)
   const installedSkills: string[] = [];
   for (const skill of DEFAULT_SKILLS) {
     const skillPath = path.join(skillsDir, skill.filename);
@@ -98,7 +112,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   vault.save();
   SecretVault.ensureGitIgnored(kbPath);
 
-  // Save Config
+  // Save Config & register as active KB globally
   const config: HubConfig = {
     version: '0.1.0',
     knowledgeBasePath: kbPath,
@@ -110,18 +124,27 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     },
   };
   saveConfig(kbPath, config);
+  setActiveKnowledgeBase(kbPath);
 
   s.message('Построение умной карты проектов (RepoMap)...');
   const repoMapGen = new RepoMapGenerator(kbPath);
   repoMapGen.saveRepoMap();
 
-  s.message('Синхронизация адаптеров для выбранных AI-систем...');
+  s.message('Синхронизация локальных адаптеров для выбранных AI-систем...');
   const synced = await syncAdapters(
     kbPath,
     config.enabledAgents,
     installedSkills,
     installedMcps
   );
+
+  let globalSyncSummary: string[] = [];
+  if (enableGlobalSync) {
+    s.message('Подключение глобальных конфигураций IDE и MCP...');
+    const globalSync = new GlobalSyncManager(kbPath);
+    const gResult = globalSync.syncAll(config.enabledAgents);
+    globalSyncSummary = gResult.targets.filter((t) => t.configured).map((t) => t.name);
+  }
 
   s.stop(chalk.green('✓ База Знаний успешно сконфигурирована!'));
 
@@ -136,21 +159,25 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
       ),
       '🛡️ Secret Inspector & Leak Guard'
     );
-  } else {
-    p.note(
-      chalk.cyan(
-        `• Папка базы знаний: ${kbPath}\n` +
-        `• Активные AI-системы: ${synced.join(', ')}\n` +
-        `• Сейф секретов (Zero-Leak): ${getVaultPath(kbPath)}\n` +
-        `• Карта проектов: PROJECTS_MAP.md (экономит 80%+ токенов)`
-      ),
-      '📋 Итоги настройки'
-    );
   }
+
+  p.note(
+    chalk.cyan(
+      `• Папка базы знаний: ${kbPath}\n` +
+      `• Активные AI-системы: ${synced.join(', ')}\n` +
+      (globalSyncSummary.length > 0
+        ? `• Глобальные MCP интеграции: ${globalSyncSummary.join(', ')}\n`
+        : '') +
+      `• Сейф секретов (Zero-Leak): ${getVaultPath(kbPath)}\n` +
+      `• Карта проектов: PROJECTS_MAP.md (экономит 80%+ токенов)\n` +
+      `• Мета-скил для агентов: skills/agenthub-guide.md`
+    ),
+    '📋 Итоги настройки'
+  );
 
   p.outro(
     chalk.bold.green(
-      'Все готово к работе! Запускайте ваших AI-агентов в этой папке.'
+      'Все готово! Вы можете запускать агентов прямо в этой папке, ЛИБО работать в любых ваших проектах через AgentHub MCP!'
     )
   );
 }

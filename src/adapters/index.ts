@@ -4,6 +4,11 @@ import { ClaudeCodeAdapter } from './claudecode.js';
 import { DeepSeekAdapter } from './deepseek.js';
 import { OpenCodeAdapter } from './opencode.js';
 import { CursorAdapter } from './cursor.js';
+import { WindsurfAdapter } from './windsurf.js';
+import { ClineAdapter } from './cline.js';
+import { RooCodeAdapter } from './roocode.js';
+import { ContinueAdapter } from './continue.js';
+import { CopilotAdapter } from './copilot.js';
 import { SupportedAgent } from '../core/config.js';
 
 export const ALL_ADAPTERS: Record<SupportedAgent, AgentAdapter> = {
@@ -12,6 +17,11 @@ export const ALL_ADAPTERS: Record<SupportedAgent, AgentAdapter> = {
   'deepseek-hermes': new DeepSeekAdapter(),
   opencode: new OpenCodeAdapter(),
   cursor: new CursorAdapter(),
+  windsurf: new WindsurfAdapter(),
+  cline: new ClineAdapter(),
+  'roo-code': new RooCodeAdapter(),
+  continue: new ContinueAdapter(),
+  copilot: new CopilotAdapter(),
   codex: {
     id: 'codex',
     name: 'OpenAI Codex',

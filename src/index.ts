@@ -4,13 +4,23 @@ import path from 'path';
 import fs from 'fs';
 import { runInitWizard } from './ui/wizard.js';
 import { printBanner } from './ui/banner.js';
-import { loadConfig, saveConfig, AGENT_INFO } from './core/config.js';
+import {
+  loadConfig,
+  saveConfig,
+  AGENT_INFO,
+  resolveKnowledgeBasePath,
+  setActiveKnowledgeBase,
+  loadGlobalConfig,
+} from './core/config.js';
 import { SecretVault } from './core/vault.js';
 import { LeakGuard } from './core/leak-guard.js';
 import { RepoMapGenerator } from './core/repomap.js';
 import { HandoffManager, HandoffCheckpoint } from './core/handoff.js';
 import { TeamSyncManager } from './core/sync.js';
+import { GlobalSyncManager } from './core/global-sync.js';
 import { syncAdapters } from './adapters/index.js';
+import { DEFAULT_SKILLS } from './templates/default-skills.js';
+import { startAgentHubMcpServer } from './mcp/server.js';
 
 const program = new Command();
 
@@ -28,38 +38,113 @@ program
     await runInitWizard(directory);
   });
 
+// Serve MCP Command
+program
+  .command('serve-mcp')
+  .description('Запустить встроенный AgentHub MCP Server (Stdio) для подключения AI-агентов из любого места')
+  .option('--kb <path>', 'Путь к Базе Знаний (по умолчанию активная База)')
+  .action(async (opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    await startAgentHubMcpServer(kbPath);
+  });
+
+// Use / Switch active KB command
+program
+  .command('use <directory>')
+  .description('Установить активную Базу Знаний по умолчанию для всей системы')
+  .action((directory) => {
+    const resolved = path.resolve(directory);
+    if (!fs.existsSync(resolved)) {
+      console.log(chalk.red(`✕ Папка не найдена: ${resolved}`));
+      return;
+    }
+    const config = loadConfig(resolved);
+    if (!config) {
+      console.log(chalk.yellow(`⚠️ В папке ${resolved} нет .hub/config.json. Инициализируйте: agenthub init ${resolved}`));
+    }
+    setActiveKnowledgeBase(resolved);
+    console.log(chalk.green(`✓ Активная База Знаний переключена на: ${chalk.bold(resolved)}`));
+    console.log(chalk.gray('  Все агенты через MCP теперь автоматически используют эту базу.'));
+  });
+
+// Global IDE Sync & Status Command
+program
+  .command('global')
+  .description('Проверить и синхронизировать глобальные настройки IDE (Windsurf, Cursor, Cline, Roo Code, Continue, Claude)')
+  .option('-a, --all', 'Синхронизировать все поддерживаемые IDE (а не только включенные в конфиге)')
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const config = loadConfig(kbPath);
+    console.log(chalk.cyan(`🌐 Глобальная интеграция AgentHub для Базы: ${chalk.bold(kbPath)}`));
+
+    const globalSync = new GlobalSyncManager(kbPath);
+    const agentsToSync = opts.all ? undefined : config?.enabledAgents;
+    const res = globalSync.syncAll(agentsToSync);
+
+    console.log('\nСтатус подключений IDE & MCP:');
+    for (const t of res.targets) {
+      const mark = t.configured ? chalk.green('✓') : chalk.red('✕');
+      console.log(`  ${mark} ${chalk.bold(t.name)}`);
+      console.log(`     Конфиг: ${chalk.gray(t.path)}`);
+      console.log(`     Статус: ${t.configured ? chalk.green(t.details) : chalk.red(t.details)}`);
+    }
+
+    console.log(chalk.cyan('\n💡 Теперь вы можете открывать любой проект в этих IDE — они автоматически подключены к AgentHub!'));
+  });
+
 // Sync Command
 program
   .command('sync')
   .description('Синхронизировать настройки адаптеров, карту проектов и правила')
-  .action(async () => {
-    const cwd = process.cwd();
-    const config = loadConfig(cwd);
+  .option('-g, --global', 'Также синхронизировать глобальные конфиги IDE и MCP серверов')
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action(async (opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const config = loadConfig(kbPath);
     if (!config) {
-      console.log(chalk.red('✕ База Знаний не найдена в текущей папке. Запустите: agenthub init'));
+      console.log(chalk.red(`✕ База Знаний не найдена по пути: ${kbPath}. Запустите: agenthub init`));
       return;
     }
 
-    console.log(chalk.cyan('Синхронизация AgentHub...'));
+    console.log(chalk.cyan(`Синхронизация AgentHub (${kbPath})...`));
 
     // 1. RepoMap
-    const repoMapGen = new RepoMapGenerator(cwd);
+    const repoMapGen = new RepoMapGenerator(kbPath);
     repoMapGen.saveRepoMap();
     console.log(chalk.green('✓ Карта проектов обновлена: PROJECTS_MAP.md'));
 
     // 2. Secret Vault check
-    SecretVault.ensureGitIgnored(cwd);
+    SecretVault.ensureGitIgnored(kbPath);
 
-    // 3. Collect active skills & MCPs
-    const skills = fs.existsSync(path.join(cwd, 'skills'))
-      ? fs.readdirSync(path.join(cwd, 'skills')).filter((f) => f.endsWith('.md'))
-      : [];
-    const mcps = fs.existsSync(path.join(cwd, 'mcp'))
-      ? fs.readdirSync(path.join(cwd, 'mcp')).map((f) => f.replace(/\.json$/, ''))
+    // 3. Ensure agenthub-guide.md meta-skill exists
+    const skillsDir = path.join(kbPath, 'skills');
+    if (!fs.existsSync(skillsDir)) {
+      fs.mkdirSync(skillsDir, { recursive: true });
+    }
+    for (const defSkill of DEFAULT_SKILLS) {
+      const sPath = path.join(skillsDir, defSkill.filename);
+      if (!fs.existsSync(sPath)) {
+        fs.writeFileSync(sPath, defSkill.content, 'utf8');
+      }
+    }
+
+    // 4. Collect active skills & MCPs
+    const skills = fs.readdirSync(skillsDir).filter((f) => f.endsWith('.md'));
+    const mcps = fs.existsSync(path.join(kbPath, 'mcp'))
+      ? fs.readdirSync(path.join(kbPath, 'mcp')).map((f) => f.replace(/\.json$/, ''))
       : [];
 
-    const synced = await syncAdapters(cwd, config.enabledAgents, skills, mcps);
-    console.log(chalk.green(`✓ Адаптеры синхронизированы для: ${synced.join(', ')}`));
+    const synced = await syncAdapters(kbPath, config.enabledAgents, skills, mcps);
+    console.log(chalk.green(`✓ Локальные адаптеры синхронизированы для: ${synced.join(', ')}`));
+
+    // 5. Global sync if requested
+    if (opts.global) {
+      const globalSync = new GlobalSyncManager(kbPath);
+      const gRes = globalSync.syncAll(config.enabledAgents);
+      const configuredNames = gRes.targets.filter((t) => t.configured).map((t) => t.name);
+      console.log(chalk.green(`✓ Глобальные IDE синхронизированы: ${configuredNames.join(', ')}`));
+    }
   });
 
 // Audit / Leak-Guard Command (Feature 4)
@@ -67,10 +152,11 @@ program
   .command('audit')
   .description('Сканировать проекты на утечки API-токенов, паролей и ключей (Leak Guard)')
   .option('--fix', 'Автоматически перенести найденные ключи в Сейф и скрыть их')
+  .option('--kb <path>', 'Путь к Базе Знаний')
   .action(async (options) => {
-    const cwd = process.cwd();
-    const leakGuard = new LeakGuard(cwd);
-    console.log(chalk.cyan('🛡️ Сканирование на утечки секретов и токенов...'));
+    const kbPath = resolveKnowledgeBasePath(options.kb);
+    const leakGuard = new LeakGuard(kbPath);
+    console.log(chalk.cyan(`🛡️ Сканирование на утечки секретов и токенов (${kbPath})...`));
 
     const findings = leakGuard.scanDirectory();
     if (findings.length === 0) {
@@ -79,7 +165,7 @@ program
     }
 
     console.log(chalk.yellow(`\n⚠️ Обнаружено уязвимостей: ${findings.length}\n`));
-    const vault = new SecretVault(cwd);
+    const vault = new SecretVault(kbPath);
 
     for (const f of findings) {
       console.log(
@@ -107,9 +193,10 @@ program
 program
   .command('repomap')
   .description('Построить компактную карту проектов для экономии токенов')
-  .action(() => {
-    const cwd = process.cwd();
-    const gen = new RepoMapGenerator(cwd);
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const gen = new RepoMapGenerator(kbPath);
     const file = gen.saveRepoMap();
     const projects = gen.scanProjects();
     console.log(chalk.green(`✓ Карта проектов сформирована: ${file}`));
@@ -122,7 +209,7 @@ program
 // Cross-Agent Handoff Command (Feature 1)
 const handoffCmd = program
   .command('handoff')
-  .description('Управление эстафетой сессий и контекстом между разными AI (Claude, Antigravity, DeepSeek и др.)');
+  .description('Управление эстафетой сессий и контекстом между разными AI (Claude, Antigravity, DeepSeek, Windsurf и др.)');
 
 handoffCmd
   .command('create')
@@ -132,9 +219,10 @@ handoffCmd
   .option('-f, --files <files...>', 'Затронутые файлы', [])
   .option('--from <agent>', 'Текущий агент', 'manual')
   .option('--to <agent>', 'Целевой следующий агент')
+  .option('--kb <path>', 'Путь к Базе Знаний')
   .action((opts) => {
-    const cwd = process.cwd();
-    const mgr = new HandoffManager(cwd);
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const mgr = new HandoffManager(kbPath);
     const cp: HandoffCheckpoint = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
@@ -153,9 +241,10 @@ handoffCmd
 handoffCmd
   .command('prompt <targetAgent>')
   .description('Сгенерировать готовый промпт для переключения на другого агента')
-  .action((targetAgent) => {
-    const cwd = process.cwd();
-    const mgr = new HandoffManager(cwd);
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((targetAgent, opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const mgr = new HandoffManager(kbPath);
     const prompt = mgr.generatePromptForAgent(targetAgent);
     console.log(chalk.cyan('\nСкопируйте этот контекст в нового агента:\n'));
     console.log(chalk.yellow(prompt));
@@ -169,9 +258,10 @@ const vaultCmd = program
 vaultCmd
   .command('set <key> <value>')
   .description('Сохранить токен в изолированный локальный Сейф')
-  .action((key, value) => {
-    const cwd = process.cwd();
-    const vault = new SecretVault(cwd);
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((key, value, opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const vault = new SecretVault(kbPath);
     vault.setSecret(key, value);
     console.log(chalk.green(`✓ Секрет '${key}' надежно сохранен в Сейфе (.hub/vault.env).`));
     console.log(chalk.gray('  AI-агенты не увидят его значение напрямую.'));
@@ -180,9 +270,10 @@ vaultCmd
 vaultCmd
   .command('list')
   .description('Показать список сохраненных ключей в Сейфе')
-  .action(() => {
-    const cwd = process.cwd();
-    const vault = new SecretVault(cwd);
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const vault = new SecretVault(kbPath);
     const keys = vault.listKeys();
     if (keys.length === 0) {
       console.log(chalk.gray('Сейф пуст. Добавьте секрет: agenthub vault set <KEY> <VALUE>'));
@@ -202,9 +293,10 @@ const teamCmd = program
 teamCmd
   .command('status')
   .description('Проверить статус Git и безопасность от утечек')
-  .action(() => {
-    const cwd = process.cwd();
-    const sync = new TeamSyncManager(cwd);
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const sync = new TeamSyncManager(kbPath);
     const st = sync.checkGit();
     console.log(chalk.cyan('Статус Git Team Sync:'));
     console.log(`  Репозиторий Git: ${st.isGitRepo ? chalk.green('Да') : chalk.red('Нет')}`);
@@ -223,9 +315,10 @@ teamCmd
 teamCmd
   .command('commit <message>')
   .description('Безопасно закоммитить общие скилы и правила команды')
-  .action((msg) => {
-    const cwd = process.cwd();
-    const sync = new TeamSyncManager(cwd);
+  .option('--kb <path>', 'Путь к Базе Знаний')
+  .action((msg, opts) => {
+    const kbPath = resolveKnowledgeBasePath(opts.kb);
+    const sync = new TeamSyncManager(kbPath);
     try {
       sync.commitSharedChanges(msg);
       console.log(chalk.green(`✓ Изменения успешно закоммичены с проверкой на утечки!`));
