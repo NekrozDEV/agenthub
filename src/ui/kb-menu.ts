@@ -12,6 +12,7 @@ import {
 import { runInitWizard } from './wizard.js';
 import { printBanner } from './banner.js';
 import { CLI_I18N } from '../core/i18n.js';
+import { checkForUpdates, renderUpdateNotice, performUpdate } from '../core/updater.js';
 
 export async function runKbManager(customLang?: SupportedLanguage): Promise<void> {
   const lang = customLang || getPreferredLanguage();
@@ -142,6 +143,14 @@ export async function runMainMenu(): Promise<void> {
   const lang = getPreferredLanguage();
   const kbs = listAllKnowledgeBases();
 
+  // Non-blocking check for updates
+  try {
+    const updateInfo = await checkForUpdates();
+    if (updateInfo.updateAvailable) {
+      console.log(renderUpdateNotice(updateInfo, lang));
+    }
+  } catch {}
+
   if (kbs.length === 0) {
     await runInitWizard();
     return;
@@ -173,6 +182,11 @@ export async function runMainMenu(): Promise<void> {
       {
         value: 'repomap',
         label: lang === 'ru' ? '🗺️ Карта проектов (RepoMap)' : '🗺️ View Project Architecture Map',
+      },
+      {
+        value: 'update',
+        label: lang === 'ru' ? '🔄 Проверить и обновить AgentHub' : '🔄 Check for updates & upgrade AgentHub',
+        hint: lang === 'ru' ? 'Автоматическая установка актуальной версии' : 'Automatically install latest version',
       },
       {
         value: 'exit',
@@ -216,5 +230,12 @@ export async function runMainMenu(): Promise<void> {
     const gen = new RepoMapGenerator(kb);
     const file = gen.saveRepoMap();
     console.log(chalk.green(`✓ PROJECTS_MAP.md: ${file}`));
+  } else if (choice === 'update') {
+    const res = await performUpdate(lang);
+    if (res.success) {
+      console.log(chalk.green(res.message));
+    } else {
+      console.log(chalk.red(res.message));
+    }
   }
 }

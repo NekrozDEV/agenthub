@@ -88,6 +88,15 @@ export interface CliStrings {
   langCurrent: (lang: string) => string;
   langSwitched: (lang: string) => string;
   langInvalid: string;
+  updateDesc: string;
+  updateCheckOpt: string;
+  updateAutoOpt: string;
+  updateChecking: string;
+  updateLatest: (ver: string) => string;
+  updateAvailable: (curr: string, next: string) => string;
+  updateSuccess: (ver: string) => string;
+  updateError: string;
+  updateAutoSet: (val: string) => string;
 }
 
 export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
@@ -179,6 +188,15 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     langCurrent: (lang) => `Current interface language: ${lang === 'ru' ? '🇷🇺 Русский (ru)' : '🇬🇧 English (en)'}`,
     langSwitched: (lang) => `✓ Interface language switched to: ${lang === 'ru' ? '🇷🇺 Русский (ru)' : '🇬🇧 English (en)'}`,
     langInvalid: '✕ Invalid language. Supported: en, ru',
+    updateDesc: 'Check for updates and upgrade AgentHub to the latest version',
+    updateCheckOpt: 'Only check for updates without installing',
+    updateAutoOpt: 'Configure auto-update preference (prompt/auto/off)',
+    updateChecking: 'Checking for updates...',
+    updateLatest: (ver) => `✓ You are already running the latest version of AgentHub (v${ver}).`,
+    updateAvailable: (curr, next) => `🚀 Update available: ${curr} → ${next}`,
+    updateSuccess: (ver) => `🎉 AgentHub successfully upgraded to v${ver}!`,
+    updateError: '✕ Failed to upgrade automatically. Please run: npm install -g git+https://github.com/NekrozDEV/agenthub.git',
+    updateAutoSet: (val) => `✓ Auto-update mode set to: ${val}`,
   },
   ru: {
     programDesc: 'Единая База Знаний и Сейф Секретов (Zero-Leak) для AI-агентов',
@@ -268,5 +286,14 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     langCurrent: (lang) => `Текущий язык интерфейса: ${lang === 'ru' ? '🇷🇺 Русский (ru)' : '🇬🇧 English (en)'}`,
     langSwitched: (lang) => `✓ Язык интерфейса переключен на: ${lang === 'ru' ? '🇷🇺 Русский (ru)' : '🇬🇧 English (en)'}`,
     langInvalid: '✕ Неверный язык. Поддерживаются: en, ru',
+    updateDesc: 'Проверить обновления и обновить AgentHub до актуальной версии',
+    updateCheckOpt: 'Только проверить наличие обновлений без установки',
+    updateAutoOpt: 'Настроить режим автообновлений (prompt/auto/off)',
+    updateChecking: 'Проверка наличия обновлений...',
+    updateLatest: (ver) => `✓ У вас уже установлена самая актуальная версия AgentHub (v${ver}).`,
+    updateAvailable: (curr, next) => `🚀 Доступно обновление: ${curr} → ${next}`,
+    updateSuccess: (ver) => `🎉 AgentHub успешно обновлен до версии ${ver}!`,
+    updateError: '✕ Не удалось выполнить автообновление. Запустите: npm install -g git+https://github.com/NekrozDEV/agenthub.git',
+    updateAutoSet: (val) => `✓ Режим автообновлений установлен на: ${val}`,
   },
 };

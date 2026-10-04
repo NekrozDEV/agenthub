@@ -35,6 +35,7 @@ export interface GlobalConfig {
   activeKnowledgeBase?: string;
   knownKnowledgeBases: string[];
   lastSynced?: string;
+  autoUpdate?: boolean | 'prompt' | 'auto' | 'off';
 }
 
 export const AGENT_INFO: Record<SupportedAgent, { name: string; description: string; configFile: string }> = {

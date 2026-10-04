@@ -178,6 +178,7 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 | `agenthub vault set <KEY> <VALUE>` | Store a secret securely in the local Zero-Leak Vault |
 | `agenthub vault list` | List stored secret keys (values masked) |
 | `agenthub lang [en\|ru]` | Display or switch CLI interface language (en/ru) |
+| `agenthub update [--check\|--auto]` | Check for updates and automatically upgrade AgentHub |
 | `agenthub team status` | Verify Git status and leak safety |
 | `agenthub team commit "msg"` | Safe commit of shared skills with pre-flight leak check |
 
@@ -394,6 +395,7 @@ npm start
 | `agenthub vault set <KEY> <VALUE>` | Сохранение секрета в защищенный локальный Сейф |
 | `agenthub vault list` | Просмотр списка защищенных ключей (значения скрыты) |
 | `agenthub lang [en\|ru]` | Показать или переключить язык интерфейса CLI (en/ru) |
+| `agenthub update [--check\|--auto]` | Проверка обновлений и автообновление AgentHub до свежей версии |
 | `agenthub team status` | Проверка статуса Git и безопасности от утечек |
 | `agenthub team commit "msg"` | Безопасный коммит общих скилов с pre-flight проверкой |
 

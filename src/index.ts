@@ -28,6 +28,13 @@ import { syncAdapters } from './adapters/index.js';
 import { DEFAULT_SKILLS } from './templates/default-skills.js';
 import { startAgentHubMcpServer } from './mcp/server.js';
 import { CLI_I18N } from './core/i18n.js';
+import {
+  checkForUpdates,
+  renderUpdateNotice,
+  performUpdate,
+  setAutoUpdateSetting,
+  getCurrentVersion,
+} from './core/updater.js';
 
 export function buildCli(customLang?: SupportedLanguage): Command {
   const lang = customLang || getPreferredLanguage();
@@ -38,8 +45,19 @@ export function buildCli(customLang?: SupportedLanguage): Command {
   program
     .name('agenthub')
     .description(t.programDesc)
-    .version('0.1.0')
+    .version(getCurrentVersion())
     .option('--lang <language>', t.langOptionDesc);
+
+  // Hook for non-blocking update notifications (skip on stdio MCP server)
+  program.hook('postAction', async (_thisCmd, actionCmd) => {
+    if (actionCmd?.name() === 'serve-mcp') return;
+    try {
+      const update = await checkForUpdates();
+      if (update.updateAvailable) {
+        console.log(renderUpdateNotice(update, lang));
+      }
+    } catch {}
+  });
 
   // Language management command
   program
@@ -420,6 +438,45 @@ export function buildCli(customLang?: SupportedLanguage): Command {
         console.log(chalk.green(t.teamCommitSuccess));
       } catch (err: any) {
         console.log(chalk.red(t.teamCommitError(err.message)));
+      }
+    });
+
+  // Update Command
+  program
+    .command('update')
+    .alias('upgrade')
+    .description(t.updateDesc)
+    .option('-c, --check', t.updateCheckOpt)
+    .option('--auto <mode>', t.updateAutoOpt)
+    .action(async (opts) => {
+      if (opts.auto) {
+        const val = opts.auto.toLowerCase();
+        if (val === 'auto' || val === 'prompt' || val === 'off') {
+          setAutoUpdateSetting(val as any);
+          console.log(chalk.green(t.updateAutoSet(chalk.bold(val))));
+          return;
+        } else {
+          console.log(chalk.red(lang === 'ru' ? '✕ Неверный режим. Допустимо: prompt, auto, off' : '✕ Invalid mode. Allowed: prompt, auto, off'));
+          return;
+        }
+      }
+
+      if (opts.check) {
+        console.log(orange(t.updateChecking));
+        const res = await checkForUpdates(true);
+        if (res.updateAvailable) {
+          console.log(renderUpdateNotice(res, lang));
+        } else {
+          console.log(chalk.green(t.updateLatest(res.currentVersion)));
+        }
+        return;
+      }
+
+      const res = await performUpdate(lang);
+      if (res.success) {
+        console.log(chalk.green(res.message));
+      } else {
+        console.log(chalk.red(res.message));
       }
     });
 

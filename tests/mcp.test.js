@@ -152,6 +152,22 @@ if (!pkgJson.repository?.url || !pkgJson.homepage || !pkgJson.files || !pkgJson.
 }
 console.log('✓ README.md navigation anchors and package.json publishing metadata verified');
 
+// 4.8. Test updater semver logic and CLI update command
+console.log('Test 3.8: Testing updater module and agenthub update CLI...');
+const { compareSemver, renderUpdateNotice } = await import('../dist/core/updater.js');
+if (compareSemver('0.1.0', '1.1.0') >= 0 || compareSemver('1.1.0', '0.1.0') <= 0 || compareSemver('1.0.0', '1.0.0') !== 0) {
+  throw new Error('Semver comparison test failed');
+}
+const mockNotice = renderUpdateNotice({ updateAvailable: true, currentVersion: '0.1.0', latestVersion: '1.1.0', source: 'network' }, 'ru');
+if (!mockNotice.includes('0.1.0') || !mockNotice.includes('1.1.0') || !mockNotice.includes('agenthub update')) {
+  throw new Error('Update notice rendering failed');
+}
+const updateHelp = execSync(`node "${mainBinPath}" update --help`, { encoding: 'utf8' });
+if (!updateHelp.includes('--check') || !updateHelp.includes('--auto')) {
+  throw new Error(`Expected agenthub update --help output, got: ${updateHelp}`);
+}
+console.log('✓ Updater semver logic, notification rendering, and agenthub update CLI verified');
+
 // 5. Test Live MCP Server Protocol and all 9 tools
 console.log('Test 4: Testing live MCP Server protocol over stdio...');
 const testKbDir = path.join(__dirname, 'test_kb_runtime');
