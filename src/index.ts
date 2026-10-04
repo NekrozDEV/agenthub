@@ -29,6 +29,7 @@ import { CLI_I18N } from './core/i18n.js';
 export function buildCli(customLang?: SupportedLanguage): Command {
   const lang = customLang || getPreferredLanguage();
   const t = CLI_I18N[lang];
+  const orange = chalk.hex('#FF8800');
   const program = new Command();
 
   program
@@ -45,7 +46,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
     .argument('[language]', t.langArgDesc)
     .action((newLang) => {
       if (!newLang) {
-        console.log(chalk.cyan(t.langCurrent(lang)));
+        console.log(orange(t.langCurrent(lang)));
         return;
       }
       const normalized = newLang.toLowerCase();
@@ -106,7 +107,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
     .action((opts) => {
       const kbPath = resolveKnowledgeBasePath(opts.kb);
       const config = loadConfig(kbPath);
-      console.log(chalk.cyan(t.globalHeader(chalk.bold(kbPath))));
+      console.log(orange(t.globalHeader(chalk.bold(kbPath))));
 
       const globalSync = new GlobalSyncManager(kbPath);
       const agentsToSync = opts.all ? undefined : config?.enabledAgents;
@@ -120,7 +121,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
         console.log(`     ${t.globalStatusLabel} ${target.configured ? chalk.green(target.details) : chalk.red(target.details)}`);
       }
 
-      console.log(chalk.cyan(t.globalTip));
+      console.log(orange(t.globalTip));
     });
 
   // Sync Command
@@ -137,7 +138,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
         return;
       }
 
-      console.log(chalk.cyan(t.syncStarting(kbPath)));
+      console.log(orange(t.syncStarting(kbPath)));
 
       // 1. RepoMap
       const repoMapGen = new RepoMapGenerator(kbPath);
@@ -186,7 +187,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
     .action(async (options) => {
       const kbPath = resolveKnowledgeBasePath(options.kb);
       const leakGuard = new LeakGuard(kbPath);
-      console.log(chalk.cyan(t.auditScanning(kbPath)));
+      console.log(orange(t.auditScanning(kbPath)));
 
       const findings = leakGuard.scanDirectory();
       if (findings.length === 0) {
@@ -213,7 +214,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
       }
 
       if (!options.fix) {
-        console.log(chalk.cyan(t.auditFixTip));
+        console.log(orange(t.auditFixTip));
       }
     });
 
@@ -228,7 +229,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
       const file = gen.saveRepoMap();
       const projects = gen.scanProjects();
       console.log(chalk.green(t.repomapSuccess(file)));
-      console.log(chalk.cyan(t.repomapProjectsFound(projects.length)));
+      console.log(orange(t.repomapProjectsFound(projects.length)));
       for (const p of projects) {
         console.log(`  - ${chalk.bold(p.name)} (${p.type}) [${p.techStack.join(', ')}]`);
       }
@@ -274,7 +275,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
       const kbPath = resolveKnowledgeBasePath(opts.kb);
       const mgr = new HandoffManager(kbPath);
       const prompt = mgr.generatePromptForAgent(targetAgent);
-      console.log(chalk.cyan(t.handoffCopyPrompt));
+      console.log(orange(t.handoffCopyPrompt));
       console.log(chalk.yellow(prompt));
     });
 
@@ -307,7 +308,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
         console.log(chalk.gray(t.vaultListEmpty));
         return;
       }
-      console.log(chalk.cyan(t.vaultListHeader(keys.length)));
+      console.log(orange(t.vaultListHeader(keys.length)));
       for (const k of keys) {
         console.log(`  • ${chalk.bold(k)}: [PROTECTED / ZERO-LEAK]`);
       }
@@ -326,7 +327,7 @@ export function buildCli(customLang?: SupportedLanguage): Command {
       const kbPath = resolveKnowledgeBasePath(opts.kb);
       const sync = new TeamSyncManager(kbPath);
       const st = sync.checkGit();
-      console.log(chalk.cyan(t.teamStatusHeader));
+      console.log(orange(t.teamStatusHeader));
       console.log(`  ${t.teamGitRepo} ${st.isGitRepo ? chalk.green(t.teamYes) : chalk.red(t.teamNo)}`);
       console.log(`  ${t.teamBranch} ${chalk.bold(st.branch || '-')}`);
       console.log(`  ${t.teamRemote} ${st.hasRemote ? chalk.green(st.remoteUrl) : chalk.yellow(t.teamRemoteNone)}`);

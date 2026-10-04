@@ -154,7 +154,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   const lang: SupportedLanguage = langChoice as SupportedLanguage;
   const t = I18N[lang];
 
-  p.intro(chalk.bgCyan.black(t.title));
+  p.intro(chalk.bgHex('#FF6600').black.bold(t.title));
 
   // 1. Choose Knowledge Base Folder
   const folderInput = await p.text({
@@ -296,19 +296,21 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
     p.note(chalk.yellow(t.leakWarning(leaks.length)), t.leakTitle);
   }
 
+  const orangeText = chalk.hex('#FFA500');
+  const orangeBullet = chalk.hex('#FF6600').bold;
   p.note(
-    chalk.cyan(
-      `• ${t.summaryFolder}: ${kbPath}\n` +
-      `• ${t.summaryAgents}: ${synced.join(', ')}\n` +
+    orangeText(
+      `${orangeBullet('•')} ${t.summaryFolder}: ${chalk.white.bold(kbPath)}\n` +
+      `${orangeBullet('•')} ${t.summaryAgents}: ${chalk.white(synced.join(', '))}\n` +
       (globalSyncSummary.length > 0
-        ? `• ${t.summaryGlobalSync}: ${globalSyncSummary.join(', ')}\n`
+        ? `${orangeBullet('•')} ${t.summaryGlobalSync}: ${chalk.white(globalSyncSummary.join(', '))}\n`
         : '') +
-      `• ${t.summaryVault}: ${getVaultPath(kbPath)}\n` +
-      `• ${t.summaryRepoMap}\n` +
-      `• ${t.summaryMetaSkill}`
+      `${orangeBullet('•')} ${t.summaryVault}: ${chalk.white(getVaultPath(kbPath))}\n` +
+      `${orangeBullet('•')} ${t.summaryRepoMap}\n` +
+      `${orangeBullet('•')} ${t.summaryMetaSkill}`
     ),
-    t.summaryTitle
+    chalk.hex('#FF6600').bold(t.summaryTitle)
   );
 
-  p.outro(chalk.bold.green(t.outroSuccess));
+  p.outro(chalk.bold.hex('#FF7700')('🔥 ' + t.outroSuccess));
 }
