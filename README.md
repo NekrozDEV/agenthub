@@ -46,32 +46,40 @@ Modern AI software development is suffering from **severe fragmentation, token b
 
 ---
 
-## ⚡ Quick Start & Installation via npm
+## ⚡ Quick Start & Installation
 
-Install OpenAgentHub globally or run it on demand without installing:
+### Option 1: Global Installation via Git & npm (Recommended)
 
-### Option 1: Global Installation (Recommended)
+You can install **AgentHub** globally on your system directly from GitHub in a single command:
+
 ```bash
-# Install globally via npm
-npm install -g open-agenthub
+# Install globally from GitHub repository
+npm install -g git+https://github.com/NekrozDEV/agenthub.git
 
-# Run the interactive setup wizard in any folder
+# Run the interactive setup wizard in any directory
 agenthub init
+
+# Or launch the interactive Main TUI Menu
+agenthub
 ```
 
-### Option 2: Instant Run with npx
-```bash
-# Run immediately without global installation
-npx open-agenthub init
-```
+> [!TIP]
+> **Automatic Updates**: When a new version is released, AgentHub will automatically notify you. You can upgrade at any time with a single command:
+> ```bash
+> agenthub update
+> ```
 
-### Option 3: From Source
+### Option 2: Clone & Build from Source
+
 ```bash
-git clone https://github.com/NekrozDEV/open-agenthub.git
-cd open-agenthub
+# Clone the repository
+git clone https://github.com/NekrozDEV/agenthub.git
+cd agenthub
+
+# Install dependencies, build and link globally
 npm install
 npm run build
-npm start
+npm link
 ```
 
 ---
@@ -89,7 +97,7 @@ You are **not locked into a single directory**. OpenAgentHub supports two flexib
 
 ## 🛠️ Interactive Bilingual Setup Wizard
 
-When you run `agenthub init` (or `npx open-agenthub`), the CLI wizard greets you with **language selection**:
+When you run `agenthub init` (or simply `agenthub`), the CLI wizard greets you with **language selection**:
 
 ```text
 ? Select language / Выберите язык:
@@ -263,32 +271,40 @@ If **AgentHub** saves your tokens, time, and simplifies your multi-agent workflo
 
 ---
 
-## ⚡ Быстрая установка через npm
+## ⚡ Быстрая установка
 
-OpenAgentHub можно установить глобально в систему или запускать на лету без установки:
+### Вариант 1: Глобальная установка через Git & npm (Рекомендуется)
 
-### Вариант 1: Глобальная установка (Рекомендуется)
+Вы можете установить **AgentHub** глобально в систему напрямую из официального GitHub-репозитория одной командой:
+
 ```bash
-# Установка глобально через npm
-npm install -g open-agenthub
+# Установка утилиты глобально
+npm install -g git+https://github.com/NekrozDEV/agenthub.git
 
 # Запуск интерактивного мастера настройки в любой папке
 agenthub init
+
+# Либо запуск интерактивного Главного меню
+agenthub
 ```
 
-### Вариант 2: Запуск без установки через npx
-```bash
-# Мгновенный запуск
-npx open-agenthub init
-```
+> [!TIP]
+> **Автообновления**: Когда выйдет свежий релиз (например, v1.1.0), утилита сама уведомит вас при запуске. Вы можете обновить её в 1 команду:
+> ```bash
+> agenthub update
+> ```
 
-### Вариант 3: Запуск из исходного кода
+### Вариант 2: Установка из исходного кода
+
 ```bash
-git clone https://github.com/NekrozDEV/open-agenthub.git
-cd open-agenthub
+# Клонирование репозитория
+git clone https://github.com/NekrozDEV/agenthub.git
+cd agenthub
+
+# Установка зависимостей, сборка и глобальный линк
 npm install
 npm run build
-npm start
+npm link
 ```
 
 ---
@@ -307,7 +323,7 @@ npm start
 
 ## 🛠️ Интерактивный двуязычный мастер настройки
 
-При первом запуске утилиты (`agenthub init` или `npx open-agenthub`) мастер первым делом предлагает **выбрать язык интерфейса**:
+При первом запуске утилиты (`agenthub init` или просто `agenthub`) мастер первым делом предлагает **выбрать язык интерфейса**:
 
 ```text
 ? Select language / Выберите язык:
