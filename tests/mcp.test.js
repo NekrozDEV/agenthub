@@ -7,6 +7,7 @@ import { CursorAdapter } from '../dist/adapters/cursor.js';
 import { ClineAdapter } from '../dist/adapters/cline.js';
 import { ContinueAdapter } from '../dist/adapters/continue.js';
 import { WindsurfAdapter } from '../dist/adapters/windsurf.js';
+import { DEFAULT_CONFIG, loadConfig, saveConfig } from '../dist/core/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cliPath = path.join(__dirname, '..', 'dist', 'mcp', 'cli.js');
@@ -92,6 +93,29 @@ try {
   console.log('✓ All adapters generate valid configs with real executable paths and zero broken node_modules');
 } finally {
   if (fs.existsSync(tempTestDir)) fs.rmSync(tempTestDir, { recursive: true, force: true });
+}
+
+// 4.5. Test HubConfig language support and persistence
+console.log('Test 3.5: Testing HubConfig language support and persistence...');
+const tempConfigDir = path.join(__dirname, 'temp_config_test');
+if (fs.existsSync(tempConfigDir)) fs.rmSync(tempConfigDir, { recursive: true, force: true });
+try {
+  if (DEFAULT_CONFIG.language !== 'en') {
+    throw new Error(`Expected DEFAULT_CONFIG.language to be 'en', got '${DEFAULT_CONFIG.language}'`);
+  }
+  const testConf = {
+    ...DEFAULT_CONFIG,
+    knowledgeBasePath: tempConfigDir,
+    language: 'ru',
+  };
+  saveConfig(tempConfigDir, testConf);
+  const loaded = loadConfig(tempConfigDir);
+  if (!loaded || loaded.language !== 'ru') {
+    throw new Error(`Failed to persist language in config. Expected 'ru', got '${loaded?.language}'`);
+  }
+  console.log('✓ HubConfig bilingual language configuration and persistence verified');
+} finally {
+  if (fs.existsSync(tempConfigDir)) fs.rmSync(tempConfigDir, { recursive: true, force: true });
 }
 
 // 5. Test Live MCP Server Protocol and all 9 tools

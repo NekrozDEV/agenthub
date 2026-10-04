@@ -5,8 +5,10 @@ import path from 'path';
 import {
   HubConfig,
   SupportedAgent,
+  SupportedLanguage,
   AGENT_INFO,
   saveConfig,
+  loadConfig,
   getVaultPath,
   setActiveKnowledgeBase,
 } from '../core/config.js';
@@ -19,22 +21,150 @@ import { DEFAULT_MCPS } from '../templates/default-mcps.js';
 import { syncAdapters } from '../adapters/index.js';
 import { printBanner } from './banner.js';
 
+interface WizardStrings {
+  title: string;
+  folderMessage: string;
+  folderEmptyError: string;
+  cancelMessage: string;
+  agentsMessage: string;
+  globalSyncMessage: string;
+  spinnerInit: string;
+  spinnerRepoMap: string;
+  spinnerLocalSync: string;
+  spinnerGlobalSync: string;
+  spinnerDone: string;
+  leakWarning: (count: number) => string;
+  leakTitle: string;
+  summaryTitle: string;
+  summaryFolder: string;
+  summaryAgents: string;
+  summaryGlobalSync: string;
+  summaryVault: string;
+  summaryRepoMap: string;
+  summaryMetaSkill: string;
+  outroSuccess: string;
+  agentHints: Record<SupportedAgent, string>;
+}
+
+const I18N: Record<SupportedLanguage, WizardStrings> = {
+  en: {
+    title: ' AgentHub Setup Wizard ',
+    folderMessage: 'Select your Unified Knowledge Base folder:',
+    folderEmptyError: 'Path cannot be empty',
+    cancelMessage: 'Setup cancelled.',
+    agentsMessage: 'Which AI systems and IDEs do you use? (Space to select, Enter to confirm):',
+    globalSyncMessage:
+      'Configure global IDE & AI integration (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) via MCP?',
+    spinnerInit: 'Initializing Knowledge Base structure...',
+    spinnerRepoMap: 'Building smart project map (RepoMap)...',
+    spinnerLocalSync: 'Synchronizing local adapters for selected AI systems...',
+    spinnerGlobalSync: 'Configuring global IDE and MCP integrations...',
+    spinnerDone: '✓ Knowledge Base configured successfully!',
+    leakWarning: (count) =>
+      `Warning! Detected ${count} potential secret(s) in knowledge base files!\nRun 'agenthub audit' to safely move them to Vault.`,
+    leakTitle: '🛡️ Secret Inspector & Leak Guard',
+    summaryTitle: '📋 Setup Summary',
+    summaryFolder: 'Knowledge Base folder',
+    summaryAgents: 'Active AI systems',
+    summaryGlobalSync: 'Global MCP integrations',
+    summaryVault: 'Zero-Leak Secret Vault',
+    summaryRepoMap: 'Project Map: PROJECTS_MAP.md (saves 80%+ tokens)',
+    summaryMetaSkill: 'Meta-Skill for agents: skills/agenthub-guide.md',
+    outroSuccess:
+      'All set! You can launch agents directly in this folder, OR work across any of your projects via AgentHub MCP!',
+    agentHints: {
+      antigravity: 'Skills (.gemini/antigravity), Rules & MCP integrations',
+      'claude-code': 'CLAUDE.md guidelines, tools config & Claude Desktop MCP',
+      'deepseek-hermes': 'Local and cloud agent prompts & function calling schemas',
+      opencode: 'Open-source autonomous developer agents',
+      cursor: '.cursorrules and .cursor/mcp.json integrations',
+      codex: 'OpenAI custom agent instructions and tool schemas',
+      windsurf: '.windsurfrules & ~/.codeium/windsurf/mcp_config.json',
+      cline: '.clinerules & VSCode cline_mcp_settings.json',
+      'roo-code': '.roomodes, .clinerules & Roo Code MCP settings',
+      continue: 'config.yaml, slash commands & MCP integrations',
+      copilot: 'Custom repository instructions & agent guidelines',
+    },
+  },
+  ru: {
+    title: ' Мастер настройки AgentHub ',
+    folderMessage: 'Выберите папку вашей Единой Базы Знаний (Knowledge Base):',
+    folderEmptyError: 'Путь не может быть пустым',
+    cancelMessage: 'Настройка отменена.',
+    agentsMessage: 'Какими AI-системами и IDE вы пользуетесь? (Пробел — выбор, Enter — подтвердить):',
+    globalSyncMessage:
+      'Настроить глобальную интеграцию IDE и AI (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) через MCP?',
+    spinnerInit: 'Инициализация структуры Базы Знаний...',
+    spinnerRepoMap: 'Построение умной карты проектов (RepoMap)...',
+    spinnerLocalSync: 'Синхронизация локальных адаптеров для выбранных AI-систем...',
+    spinnerGlobalSync: 'Подключение глобальных конфигураций IDE и MCP...',
+    spinnerDone: '✓ База Знаний успешно сконфигурирована!',
+    leakWarning: (count) =>
+      `Внимание! Обнаружено ${count} потенциальных секретов в файлах базы знаний!\nЗапустите 'agenthub audit' для безопасного переноса их в Сейф.`,
+    leakTitle: '🛡️ Secret Inspector & Leak Guard',
+    summaryTitle: '📋 Итоги настройки',
+    summaryFolder: 'Папка базы знаний',
+    summaryAgents: 'Активные AI-системы',
+    summaryGlobalSync: 'Глобальные MCP интеграции',
+    summaryVault: 'Сейф секретов (Zero-Leak)',
+    summaryRepoMap: 'Карта проектов: PROJECTS_MAP.md (экономит 80%+ токенов)',
+    summaryMetaSkill: 'Мета-скил для агентов: skills/agenthub-guide.md',
+    outroSuccess:
+      'Все готово! Вы можете запускать агентов прямо в этой папке, ЛИБО работать в любых ваших проектах через AgentHub MCP!',
+    agentHints: {
+      antigravity: 'Навыки (.gemini/antigravity), правила и MCP интеграции',
+      'claude-code': 'CLAUDE.md инструкции, конфиг инструментов и Claude Desktop MCP',
+      'deepseek-hermes': 'Промпты для локальных/облачных агентов и схемы вызова функций',
+      opencode: 'Автономные open-source агенты-разработчики',
+      cursor: 'Интеграции .cursorrules и .cursor/mcp.json',
+      codex: 'Инструкции для кастомных агентов OpenAI и схемы инструментов',
+      windsurf: '.windsurfrules и ~/.codeium/windsurf/mcp_config.json',
+      cline: '.clinerules и cline_mcp_settings.json для VS Code',
+      'roo-code': '.roomodes, .clinerules и настройки Roo Code MCP',
+      continue: 'config.yaml, слэш-команды и MCP интеграции',
+      copilot: 'Инструкции репозитория и руководства для агентов',
+    },
+  },
+};
+
 export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   printBanner();
-  p.intro(chalk.bgCyan.black(' AgentHub Setup Wizard '));
+
+  // 0. Language selection
+  const defaultDir = initialTargetDir || process.cwd();
+  const existingConfig = loadConfig(defaultDir);
+  const initialLang: SupportedLanguage = existingConfig?.language || 'en';
+
+  const langChoice = await p.select({
+    message: 'Select language / Выберите язык:',
+    options: [
+      { value: 'en', label: '🇬🇧 English', hint: 'English interface' },
+      { value: 'ru', label: '🇷🇺 Русский', hint: 'Русскоязычный интерфейс' },
+    ],
+    initialValue: initialLang,
+  });
+
+  if (p.isCancel(langChoice)) {
+    p.cancel('Setup cancelled / Настройка отменена.');
+    process.exit(0);
+  }
+
+  const lang: SupportedLanguage = langChoice as SupportedLanguage;
+  const t = I18N[lang];
+
+  p.intro(chalk.bgCyan.black(t.title));
 
   // 1. Choose Knowledge Base Folder
-  const defaultDir = initialTargetDir || process.cwd();
   const folderInput = await p.text({
-    message: 'Выберите папку вашей Единой Базы Знаний (Knowledge Base):',
+    message: t.folderMessage,
     initialValue: defaultDir,
     validate: (val) => {
-      if (!val || val.trim().length === 0) return 'Путь не может быть пустым';
+      if (!val || val.trim().length === 0) return t.folderEmptyError;
     },
   });
 
   if (p.isCancel(folderInput)) {
-    p.cancel('Настройка отменена.');
+    p.cancel(t.cancelMessage);
     process.exit(0);
   }
 
@@ -44,35 +174,34 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   const agentOptions = (Object.keys(AGENT_INFO) as SupportedAgent[]).map((key) => ({
     value: key,
     label: AGENT_INFO[key].name,
-    hint: AGENT_INFO[key].description,
+    hint: t.agentHints[key] || AGENT_INFO[key].description,
   }));
 
   const selectedAgents = await p.multiselect({
-    message: 'Какими AI-системами и IDE вы пользуетесь? (Пробел — выбор, Enter — подтвердить):',
+    message: t.agentsMessage,
     options: agentOptions,
     initialValues: ['antigravity', 'deepseek-hermes', 'opencode', 'windsurf', 'cursor'],
     required: true,
   });
 
   if (p.isCancel(selectedAgents)) {
-    p.cancel('Настройка отменена.');
+    p.cancel(t.cancelMessage);
     process.exit(0);
   }
 
   // 3. Ask for Global IDE / MCP Registration
   const enableGlobalSync = await p.confirm({
-    message:
-      'Настроить глобальную интеграцию IDE и AI (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) через MCP?',
+    message: t.globalSyncMessage,
     initialValue: true,
   });
 
   if (p.isCancel(enableGlobalSync)) {
-    p.cancel('Настройка отменена.');
+    p.cancel(t.cancelMessage);
     process.exit(0);
   }
 
   const s = p.spinner();
-  s.start('Инициализация структуры Базы Знаний...');
+  s.start(t.spinnerInit);
 
   // Ensure folders
   const projectsDir = path.join(kbPath, 'projects');
@@ -115,6 +244,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   // Save Config & register as active KB globally
   const config: HubConfig = {
     version: '0.1.0',
+    language: lang,
     knowledgeBasePath: kbPath,
     enabledAgents: selectedAgents as SupportedAgent[],
     settings: {
@@ -126,11 +256,11 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   saveConfig(kbPath, config);
   setActiveKnowledgeBase(kbPath);
 
-  s.message('Построение умной карты проектов (RepoMap)...');
+  s.message(t.spinnerRepoMap);
   const repoMapGen = new RepoMapGenerator(kbPath);
   repoMapGen.saveRepoMap();
 
-  s.message('Синхронизация локальных адаптеров для выбранных AI-систем...');
+  s.message(t.spinnerLocalSync);
   const synced = await syncAdapters(
     kbPath,
     config.enabledAgents,
@@ -140,44 +270,35 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   let globalSyncSummary: string[] = [];
   if (enableGlobalSync) {
-    s.message('Подключение глобальных конфигураций IDE и MCP...');
+    s.message(t.spinnerGlobalSync);
     const globalSync = new GlobalSyncManager(kbPath);
     const gResult = globalSync.syncAll(config.enabledAgents);
-    globalSyncSummary = gResult.targets.filter((t) => t.configured).map((t) => t.name);
+    globalSyncSummary = gResult.targets.filter((target) => target.configured).map((target) => target.name);
   }
 
-  s.stop(chalk.green('✓ База Знаний успешно сконфигурирована!'));
+  s.stop(chalk.green(t.spinnerDone));
 
   // Run Leak Guard check
   const leakGuard = new LeakGuard(kbPath);
   const leaks = leakGuard.scanDirectory();
 
   if (leaks.length > 0) {
-    p.note(
-      chalk.yellow(
-        `Внимание! Обнаружено ${leaks.length} потенциальных секретов в файлах базы знаний!\nЗапустите 'agenthub audit' для безопасного переноса их в Сейф.`
-      ),
-      '🛡️ Secret Inspector & Leak Guard'
-    );
+    p.note(chalk.yellow(t.leakWarning(leaks.length)), t.leakTitle);
   }
 
   p.note(
     chalk.cyan(
-      `• Папка базы знаний: ${kbPath}\n` +
-      `• Активные AI-системы: ${synced.join(', ')}\n` +
+      `• ${t.summaryFolder}: ${kbPath}\n` +
+      `• ${t.summaryAgents}: ${synced.join(', ')}\n` +
       (globalSyncSummary.length > 0
-        ? `• Глобальные MCP интеграции: ${globalSyncSummary.join(', ')}\n`
+        ? `• ${t.summaryGlobalSync}: ${globalSyncSummary.join(', ')}\n`
         : '') +
-      `• Сейф секретов (Zero-Leak): ${getVaultPath(kbPath)}\n` +
-      `• Карта проектов: PROJECTS_MAP.md (экономит 80%+ токенов)\n` +
-      `• Мета-скил для агентов: skills/agenthub-guide.md`
+      `• ${t.summaryVault}: ${getVaultPath(kbPath)}\n` +
+      `• ${t.summaryRepoMap}\n` +
+      `• ${t.summaryMetaSkill}`
     ),
-    '📋 Итоги настройки'
+    t.summaryTitle
   );
 
-  p.outro(
-    chalk.bold.green(
-      'Все готово! Вы можете запускать агентов прямо в этой папке, ЛИБО работать в любых ваших проектах через AgentHub MCP!'
-    )
-  );
+  p.outro(chalk.bold.green(t.outroSuccess));
 }

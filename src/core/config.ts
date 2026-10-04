@@ -16,8 +16,11 @@ export type SupportedAgent =
   | 'continue'
   | 'copilot';
 
+export type SupportedLanguage = 'en' | 'ru';
+
 export interface HubConfig {
   version: string;
+  language?: SupportedLanguage;
   knowledgeBasePath: string;
   enabledAgents: SupportedAgent[];
   settings: {
@@ -93,6 +96,7 @@ export const AGENT_INFO: Record<SupportedAgent, { name: string; description: str
 
 export const DEFAULT_CONFIG: HubConfig = {
   version: '0.1.0',
+  language: 'en',
   knowledgeBasePath: '',
   enabledAgents: ['antigravity', 'deepseek-hermes', 'opencode'],
   settings: {
