@@ -26,7 +26,7 @@ export function getCurrentVersion() {
         }
     }
     catch { }
-    return '0.1.2';
+    return '0.1.3';
 }
 /**
  * Compares two semver strings: a and b.

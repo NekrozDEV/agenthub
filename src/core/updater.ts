@@ -39,7 +39,7 @@ export function getCurrentVersion(): string {
       if (parsed.version) return parsed.version;
     }
   } catch {}
-  return '0.1.2';
+  return '0.1.3';
 }
 
 /**
