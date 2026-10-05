@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { MANAGED_MARKER, hasAgentHubMarker, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
+import { MANAGED_MARKER, hasAgentHubMarker, safeCleanupManagedFile, safeCleanupIgnoreFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
 import { SecretVault } from '../core/vault.js';
 export class ContinueAdapter {
@@ -65,6 +65,8 @@ ${agenthubEntry}
         }
     }
     cleanup(knowledgeBasePath) {
+        const continueIgnorePath = path.join(knowledgeBasePath, '.continueignore');
+        safeCleanupIgnoreFile(continueIgnorePath);
         const continueDir = path.join(knowledgeBasePath, '.continue');
         const configYamlPath = path.join(continueDir, 'config.yaml');
         if (fs.existsSync(configYamlPath)) {

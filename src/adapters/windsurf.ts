@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { AgentAdapter, MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
+import { AgentAdapter, MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeCleanupIgnoreFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
 import { GlobalSyncManager } from '../core/global-sync.js';
 import { SecretVault } from '../core/vault.js';
@@ -74,6 +74,9 @@ ${skills.map((s) => `  - \`skills/${s}\``).join('\n')}
   cleanup(knowledgeBasePath: string): void {
     const rulesPath = path.join(knowledgeBasePath, '.windsurfrules');
     safeCleanupManagedFile(rulesPath);
+
+    const codeiumIgnorePath = path.join(knowledgeBasePath, '.codeiumignore');
+    safeCleanupIgnoreFile(codeiumIgnorePath);
 
     const windsurfDir = path.join(knowledgeBasePath, '.codeium', 'windsurf');
     const mcpConfigPath = path.join(windsurfDir, 'mcp_config.json');

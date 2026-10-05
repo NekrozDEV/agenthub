@@ -13,8 +13,8 @@ Only the latest release of OpenAgentHub receives security updates and patches.
 
 OpenAgentHub is designed from the ground up around strict data isolation principles:
 
-1. **Vault Isolation & Pre-Read Sanitization**:
-   - Secrets are stored in `.hub/vault.env` with strict `0600` filesystem permissions and are stored locally for AgentHub tools and sanitization.
+1. **Vault Isolation & Model Protection**:
+   - Secrets are stored in `.hub/vault.env` with strict `0600` filesystem permissions; values are stored locally and never sent to AI models.
    - The `.hub` folder, `vault.env`, and `*.bak` backups are automatically added to `.gitignore`.
    - Auto-generated agent ignore files (`.cursorignore`, `.codeiumignore`, `.continueignore`, and `.zcodeignore`) strictly prevent AI editors from reading `.hub/`, `*.env*`, `.env*`, and `*.bak`.
    - Global Claude Code integration automatically injects deny permissions: `permissions.deny: ["Read(.hub/**)", "Read(**/.env*)", "Glob(.hub/**)", "Grep(.hub/**)"]`.

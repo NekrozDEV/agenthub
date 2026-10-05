@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
+import { MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeCleanupIgnoreFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
 import { GlobalSyncManager } from '../core/global-sync.js';
 import { SecretVault } from '../core/vault.js';
@@ -59,6 +59,8 @@ export class CursorAdapter {
     cleanup(knowledgeBasePath) {
         const cursorRulesPath = path.join(knowledgeBasePath, '.cursorrules');
         safeCleanupManagedFile(cursorRulesPath);
+        const cursorIgnorePath = path.join(knowledgeBasePath, '.cursorignore');
+        safeCleanupIgnoreFile(cursorIgnorePath);
         const cursorDir = path.join(knowledgeBasePath, '.cursor');
         const mcpConfigPath = path.join(cursorDir, 'mcp.json');
         if (fs.existsSync(mcpConfigPath)) {

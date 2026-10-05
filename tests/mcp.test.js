@@ -1041,6 +1041,89 @@ async function runMcpSuite() {
   }
   console.log('✓ Custom user files without marker are strictly protected; managed files create .bak before cleanup');
 
+  // 12l. Verify selective ignore files cleanup, user line preservation in ignore files, and JSON config preservation
+  console.log('Test 12l: Testing ignore file cleanup, user content retention, and RooCode/OpenCode preservation...');
+  const testIgnoreCleanupKb = path.join(testKbDir, 'ignore_cleanup_kb');
+  fs.mkdirSync(testIgnoreCleanupKb, { recursive: true });
+
+  // 1. Generate configs for cursor, windsurf, continue
+  await syncAdapters(testIgnoreCleanupKb, ['cursor', 'windsurf', 'continue'], [], []);
+  if (!fs.existsSync(path.join(testIgnoreCleanupKb, '.cursorignore')) ||
+      !fs.existsSync(path.join(testIgnoreCleanupKb, '.codeiumignore')) ||
+      !fs.existsSync(path.join(testIgnoreCleanupKb, '.continueignore'))) {
+    throw new Error('syncAdapters failed to generate agent ignore files');
+  }
+
+  // 2. Add user line to .cursorignore
+  fs.appendFileSync(path.join(testIgnoreCleanupKb, '.cursorignore'), 'my_custom_user_ignore_pattern/\n', 'utf8');
+
+  // 3. Run cleanup
+  await syncAdapters(testIgnoreCleanupKb, [], [], []);
+
+  // Purely managed ignore files should be cleaned up
+  if (fs.existsSync(path.join(testIgnoreCleanupKb, '.codeiumignore'))) {
+    throw new Error('Cleanup failed to remove purely managed .codeiumignore');
+  }
+  if (fs.existsSync(path.join(testIgnoreCleanupKb, '.continueignore'))) {
+    throw new Error('Cleanup failed to remove purely managed .continueignore');
+  }
+
+  // .cursorignore with user line should have stripped managed lines and kept user line + created .bak
+  if (!fs.existsSync(path.join(testIgnoreCleanupKb, '.cursorignore'))) {
+    throw new Error('Cleanup deleted .cursorignore containing user custom ignore pattern!');
+  }
+  const cursorIgnContentAfter = fs.readFileSync(path.join(testIgnoreCleanupKb, '.cursorignore'), 'utf8');
+  if (!cursorIgnContentAfter.includes('my_custom_user_ignore_pattern')) {
+    throw new Error(`.cursorignore did not retain user pattern: ${cursorIgnContentAfter}`);
+  }
+  if (cursorIgnContentAfter.includes('# AgentHub Vault Isolation')) {
+    throw new Error(`.cursorignore did not strip AgentHub managed lines: ${cursorIgnContentAfter}`);
+  }
+  if (!fs.existsSync(path.join(testIgnoreCleanupKb, '.cursorignore.bak'))) {
+    throw new Error('.cursorignore.bak was not created before modifying file with user lines');
+  }
+
+  // 4. Test RooCode and OpenCode user configuration preservation
+  const testMergeKb = path.join(testKbDir, 'merge_config_kb');
+  fs.mkdirSync(testMergeKb, { recursive: true });
+  const rooPath = path.join(testMergeKb, '.roomodes');
+  fs.writeFileSync(rooPath, JSON.stringify({ customModes: [{ slug: 'custom-dev', name: 'Custom Dev' }] }, null, 2), 'utf8');
+
+  const openCodeDir = path.join(testMergeKb, '.opencode');
+  fs.mkdirSync(openCodeDir, { recursive: true });
+  const openCodePath = path.join(openCodeDir, 'config.json');
+  fs.writeFileSync(openCodePath, JSON.stringify({ my: 'custom_opencode_config', timeout: 5000 }, null, 2), 'utf8');
+
+  // Sync RooCode & OpenCode
+  await syncAdapters(testMergeKb, ['roo-code', 'opencode'], [], []);
+  const mergedRoo = JSON.parse(fs.readFileSync(rooPath, 'utf8'));
+  if (!mergedRoo.customModes.some(m => m.slug === 'custom-dev') || !mergedRoo.customModes.some(m => m.slug === 'agenthub-engineer')) {
+    throw new Error(`RooCode failed to merge user modes: ${JSON.stringify(mergedRoo)}`);
+  }
+  const mergedOpenCode = JSON.parse(fs.readFileSync(openCodePath, 'utf8'));
+  if (mergedOpenCode.my !== 'custom_opencode_config' || mergedOpenCode.timeout !== 5000) {
+    throw new Error(`OpenCode failed to preserve user keys: ${JSON.stringify(mergedOpenCode)}`);
+  }
+
+  // Cleanup RooCode & OpenCode -> should restore user configurations without deleting files
+  await syncAdapters(testMergeKb, [], [], []);
+  if (!fs.existsSync(rooPath)) {
+    throw new Error('Cleanup deleted user .roomodes file!');
+  }
+  const restoredRoo = JSON.parse(fs.readFileSync(rooPath, 'utf8'));
+  if (restoredRoo.customModes.some(m => m.slug === 'agenthub-engineer') || !restoredRoo.customModes.some(m => m.slug === 'custom-dev')) {
+    throw new Error(`Cleanup failed to restore user modes in .roomodes: ${JSON.stringify(restoredRoo)}`);
+  }
+
+  if (!fs.existsSync(openCodePath)) {
+    throw new Error('Cleanup deleted user .opencode/config.json file!');
+  }
+  const restoredOpenCode = JSON.parse(fs.readFileSync(openCodePath, 'utf8'));
+  if (restoredOpenCode.my !== 'custom_opencode_config' || restoredOpenCode.timeout !== 5000 || restoredOpenCode._comment !== undefined) {
+    throw new Error(`Cleanup failed to restore user config in .opencode/config.json: ${JSON.stringify(restoredOpenCode)}`);
+  }
+  console.log('✓ Ignore file cleanup, user pattern retention, and RooCode/OpenCode preservation verified');
+
   proc.kill();
   if (fs.existsSync(testKbDir)) fs.rmSync(testKbDir, { recursive: true, force: true });
   console.log('\n========================================');

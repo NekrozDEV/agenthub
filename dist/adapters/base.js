@@ -95,14 +95,14 @@ export function safeCleanupIgnoreFile(filePath) {
             '*.bak',
         ]);
         const hasUserLines = lines.some((l) => !managedLines.has(l));
-        if (!hasUserLines) {
-            const bakPath = `${filePath}.bak`;
-            if (!fs.existsSync(bakPath)) {
-                try {
-                    fs.copyFileSync(filePath, bakPath);
-                }
-                catch { }
+        const bakPath = `${filePath}.bak`;
+        if (!fs.existsSync(bakPath)) {
+            try {
+                fs.copyFileSync(filePath, bakPath);
             }
+            catch { }
+        }
+        if (!hasUserLines) {
             fs.unlinkSync(filePath);
             return true;
         }

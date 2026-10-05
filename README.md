@@ -142,7 +142,7 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 * **Resources & Prompts**: `agenthub://projects-map`, `agenthub://handoff`, `agenthub://guide`, and the `agenthub_resume_task` prompt.
 
 ### 2. 🛡️ Zero-Leak Security Vault
-* **Local Storage & Pre-Read Sanitization**: All sensitive credentials reside in `.hub/vault.env` with strict `0600` filesystem permissions and **guaranteed Git exclusion** (`.gitignore`).
+* **Local Secret Storage & Model Isolation**: All sensitive credentials reside in `.hub/vault.env` with strict `0600` filesystem permissions and **guaranteed Git exclusion** (`.gitignore`).
 * **Multi-IDE Agent Isolation**: Automatically generates and maintains `.cursorignore`, `.codeiumignore`, `.continueignore`, and `.zcodeignore` (blocking `.hub/`, `*.env*`, `.env*`, and `*.bak`), plus Claude Code deny rules (`Read(.hub/**)`, `Read(**/.env*)`, `Glob(.hub/**)`, `Grep(.hub/**)`).
 * **Strict Non-Disclosure**: AI agents receive only boolean confirmations, key names, and length metadata (`{ key, exists, status, length }`). No raw values, token snippets, or partial token prefixes are ever exposed.
 
