@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { AgentAdapter } from './base.js';
+import { AgentAdapter, MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
 
 export class ClaudeCodeAdapter implements AgentAdapter {
   id = 'claude-code' as const;
@@ -8,7 +8,8 @@ export class ClaudeCodeAdapter implements AgentAdapter {
 
   generateConfig(knowledgeBasePath: string, skills: string[], mcps: string[]): void {
     const claudeMdPath = path.join(knowledgeBasePath, 'CLAUDE.md');
-    const content = `# CLAUDE.md - AgentHub Managed Workspace
+    const content = `${MANAGED_MARKER}
+# CLAUDE.md - Workspace Instructions
 
 ## Workspace Navigation & Token Efficiency
 - User projects are stored in \`projects/\`.
@@ -23,7 +24,7 @@ ${skills.map((s) => `- \`skills/${s}\``).join('\n')}
 - Sensitive environment variables and tokens are securely isolated in AgentHub Vault.
 `;
 
-    fs.writeFileSync(claudeMdPath, content, 'utf8');
+    safeWriteManagedRuleFile(claudeMdPath, content);
 
     // Create .claude directory with safe config
     const claudeDir = path.join(knowledgeBasePath, '.claude');
@@ -34,8 +35,10 @@ ${skills.map((s) => `- \`skills/${s}\``).join('\n')}
 
   cleanup(knowledgeBasePath: string): void {
     const claudeMdPath = path.join(knowledgeBasePath, 'CLAUDE.md');
-    if (fs.existsSync(claudeMdPath)) {
-      fs.unlinkSync(claudeMdPath);
-    }
+    safeCleanupManagedFile(claudeMdPath);
+
+    const claudeDir = path.join(knowledgeBasePath, '.claude');
+    safeRemoveEmptyDir(claudeDir);
   }
 }
+

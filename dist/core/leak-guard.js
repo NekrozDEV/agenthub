@@ -94,8 +94,10 @@ export class LeakGuard {
     }
     /**
      * Recursively scans directory while ignoring safe/binary/build folders
+     * @param dirPath Directory to scan (defaults to basePath)
+     * @param includeBackups If true, include *.bak backup files in scan (default: false)
      */
-    scanDirectory(dirPath = this.basePath) {
+    scanDirectory(dirPath = this.basePath, includeBackups = false) {
         const findings = [];
         const ignoreDirs = new Set(['node_modules', '.git', 'dist', 'build', '.hub', '.next']);
         const walk = (currentDir) => {
@@ -114,9 +116,15 @@ export class LeakGuard {
                     const ext = path.extname(entry.name).toLowerCase();
                     const skipExts = new Set([
                         '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz',
-                        '.exe', '.dll', '.bin', '.pdf', '.bak', '.tmp', '.swp',
+                        '.exe', '.dll', '.bin', '.pdf', '.tmp', '.swp',
                     ]);
-                    if (skipExts.has(ext) || entry.name.endsWith('.bak'))
+                    if (!includeBackups) {
+                        skipExts.add('.bak');
+                        skipExts.add('.backup');
+                    }
+                    if (skipExts.has(ext))
+                        continue;
+                    if (!includeBackups && (entry.name.endsWith('.bak') || entry.name.endsWith('.backup')))
                         continue;
                     try {
                         const stats = fs.statSync(fullPath);
@@ -134,6 +142,76 @@ export class LeakGuard {
         walk(dirPath);
         return findings;
     }
+    static ENV_BLACKLIST_EXTENSIONS = [
+        '.yaml',
+        '.yml',
+        '.json',
+        '.js',
+        '.ts',
+        '.jsx',
+        '.tsx',
+        '.mjs',
+        '.cjs',
+        '.py',
+        '.bak',
+        '.backup',
+        '.go',
+        '.rs',
+        '.java',
+        '.cpp',
+        '.c',
+        '.h',
+        '.md',
+        '.markdown',
+        '.txt',
+        '.xml',
+        '.toml',
+        '.ini',
+        '.conf',
+        '.sh',
+        '.bash',
+        '.zsh',
+        '.tar',
+        '.gz',
+        '.zip',
+        '.7z',
+        '.rar',
+        '.tmp',
+        '.temp',
+        '.swp',
+        '.lock',
+        '.log',
+        '.sql',
+        '.php',
+        '.rb',
+    ];
+    /**
+     * Validates whether a file is an authentic .env configuration file.
+     * Rejects structured and code files like deploy.env.yaml, production.env.backup, config.env.json
+     * while accepting true .env variants such as .env, .env.local, production.env, config.env.local.
+     */
+    static isEnvFile(filePath) {
+        const ext = path.extname(filePath).toLowerCase();
+        const base = path.basename(filePath).toLowerCase();
+        const looksLikeEnv = base === '.env' ||
+            base.startsWith('.env.') ||
+            base.endsWith('.env') ||
+            base.includes('.env.') ||
+            ext === '.env';
+        if (!looksLikeEnv)
+            return false;
+        if (LeakGuard.ENV_BLACKLIST_EXTENSIONS.includes(ext) || ext === '.bak' || ext === '.backup') {
+            return false;
+        }
+        // Inspect all dot-separated segments to reject compound extensions like deploy.env.yaml.local, test.env.js.bak
+        const segments = base.split('.');
+        for (const segment of segments) {
+            if (segment && segment !== 'env' && LeakGuard.ENV_BLACKLIST_EXTENSIONS.includes('.' + segment)) {
+                return false;
+            }
+        }
+        return true;
+    }
     static SUPPORTED_EXTENSIONS = [
         '.js',
         '.ts',
@@ -146,15 +224,11 @@ export class LeakGuard {
     ];
     /**
      * Checks if the file format is supported for safe automated secret redaction
-     * (.js, .ts, .jsx, .tsx, .mjs, .cjs, .py, .json, .env*)
+     * (.js, .ts, .jsx, .tsx, .mjs, .cjs, .py, .json, and verified .env files)
      */
     static isSupportedFile(filePath) {
         const ext = path.extname(filePath).toLowerCase();
-        const base = path.basename(filePath).toLowerCase();
-        if (base.startsWith('.env') ||
-            ext.startsWith('.env') ||
-            base.endsWith('.env') ||
-            base.includes('.env.')) {
+        if (LeakGuard.isEnvFile(filePath)) {
             return true;
         }
         return LeakGuard.SUPPORTED_EXTENSIONS.includes(ext);
@@ -183,14 +257,10 @@ export class LeakGuard {
             catch { }
             const content = fs.readFileSync(finding.filePath, 'utf8');
             const ext = path.extname(finding.filePath).toLowerCase();
-            const base = path.basename(finding.filePath).toLowerCase();
             const isJsTs = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'].includes(ext);
             const isPython = ext === '.py';
             const isJson = ext === '.json';
-            const isEnv = base.startsWith('.env') ||
-                ext.startsWith('.env') ||
-                base.endsWith('.env') ||
-                base.includes('.env.');
+            const isEnv = LeakGuard.isEnvFile(finding.filePath);
             let replacement;
             if (isJsTs) {
                 replacement = `process.env.${envVarName} || ""`;

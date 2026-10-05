@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.3] - 2026-10-05
+
+### Added
+- **ZCode Adapter (z.ai)**: Full integration with Z.ai / ZCode (`zai-org/ZCode`) AI coding assistant. Generates `.zcoderules`, `AGENTS.md`, `.zcodeignore`, and local `.zcode/mcp.json`; added `zcode` to interactive setup wizard and global sync (`GlobalSyncManager.syncZCode()`).
+- **Audit Backup Inspection**: Added `--include-backups` CLI option to `agenthub audit` to optionally inspect `.bak` files.
+- **Safe Lifecycle & Marker Protection**: Added `# AgentHub Managed` marker tracking across all IDE rule files (`CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`, `.zcoderules`, `.roomodes`, `AGENTS.md`, `.github/copilot-instructions.md`).
+- **Reproducible Build Verification**: Added `git diff --exit-code -- dist` automated step in CI and release pipelines to prevent uncommitted or out-of-sync builds.
+- **OIDC Provenance Release Pipeline**: Added `.github/workflows/release.yml` with npm provenance publishing on `v*` tags.
+
+### Security & Hardening
+- **Critical Path Safeguards (P0)**: Implemented `isCriticalSystemPath()` to strictly block accidental deletion of root (`/`, `C:\`), `$HOME`, user directories, `process.cwd()`, Unix system trees (`/bin`, `/etc`, `/usr`, `/tmp`, etc.), and Windows system folders (`WINDIR`, `System32`, `ProgramFiles`).
+- **Registration-Guarded Removal (P0)**: `agenthub kb remove --delete-files` now strictly verifies that the path belongs to `knownKnowledgeBases`, requires `-y, --yes` flag (or interactive confirmation `p.confirm`), and aborts safely in non-interactive environments.
+- **Rule File Protection on Sync (P0)**: `agenthub sync` and `init` cleanup now never deletes user-authored custom rule files lacking the `# AgentHub Managed` marker; always creates `.bak` backups before unlinking managed files; and completely eliminates recursive directory removal (`rmSync`), pruning only empty directories (`safeRemoveEmptyDir`).
+- **Agent Vault Isolation**: Automatically configures `.cursorignore`, `.codeiumignore`, `.continueignore`, and `.zcodeignore` to block AI models from reading `.hub/`, `*.env*`, `.env*`, and `*.bak`; injects `permissions.deny: ["Read(.hub/**)", "Read(**/.env*)", "Glob(.hub/**)", "Grep(.hub/**)"]` into Claude Code (`~/.claude.json`).
+- **Un-ignored `.env.example`**: Explicitly un-ignores `!.env.example` and `!*.env.example` in agent ignore files so legitimate documentation and template files remain visible.
+- **Zero-Leak Secret Verification**: Removed `maskedPreview` from `agenthub_check_vault_secret` MCP tool and schema, returning only presence, status, and length without leaking token fragments.
+- **Accurate Environment File Detection**: Hardened `LeakGuard.isEnvFile()` with segment and extension blacklist filtering, preventing corruption of structured files (`deploy.env.yaml`, `production.env.backup`) while preserving valid `.env` variants (`config.env.local`).
+- **Claude Code Setup Verification**: `syncClaudeCode()` now checks for existing `~/.claude` installation before writing `~/.claude.json`.
+- **Pristine IDE Config Backup Preservation**: Global sync now preserves original user configuration files on repeated sync runs without overwriting `.bak` backups.
+- **Truthful Vault Headers & Documentation**: Replaced misleading Proxy/pre-read sanitization claims in `.hub/vault.env`, `README.md`, and `SECURITY.md` with factual local storage and zero-exposure documentation.
+
+---
+
 ## [0.1.2] - 2026-10-05
 
 ### Added

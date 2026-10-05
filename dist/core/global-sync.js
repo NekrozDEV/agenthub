@@ -86,9 +86,10 @@ export class GlobalSyncManager {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-        if (fs.existsSync(filePath)) {
+        const bakPath = `${filePath}.bak`;
+        if (fs.existsSync(filePath) && !fs.existsSync(bakPath)) {
             try {
-                fs.copyFileSync(filePath, `${filePath}.bak`);
+                fs.copyFileSync(filePath, bakPath);
             }
             catch { }
         }
@@ -99,9 +100,10 @@ export class GlobalSyncManager {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-        if (fs.existsSync(filePath)) {
+        const bakPath = `${filePath}.bak`;
+        if (fs.existsSync(filePath) && !fs.existsSync(bakPath)) {
             try {
-                fs.copyFileSync(filePath, `${filePath}.bak`);
+                fs.copyFileSync(filePath, bakPath);
             }
             catch { }
         }
@@ -119,6 +121,11 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
+            const claudeDir = path.join(os.homedir(), '.claude');
+            if (!fs.existsSync(claudeDir)) {
+                target.details = 'Skipped: Claude Code is not installed on this system (~/.claude directory does not exist)';
+                return target;
+            }
             const { data, parseError } = this.safeReadJson(configPath);
             if (parseError) {
                 target.details = 'Skipped: Failed to safely parse ~/.claude.json (original file preserved)';
@@ -131,9 +138,19 @@ export class GlobalSyncManager {
                 command: process.execPath,
                 args: [this.binPath, 'serve-mcp', '--kb', this.knowledgeBasePath],
             };
+            if (!conf.permissions)
+                conf.permissions = {};
+            if (!Array.isArray(conf.permissions.deny))
+                conf.permissions.deny = [];
+            const denyRules = ['Read(.hub/**)', 'Read(**/.env*)', 'Glob(.hub/**)', 'Grep(.hub/**)'];
+            for (const rule of denyRules) {
+                if (!conf.permissions.deny.includes(rule)) {
+                    conf.permissions.deny.push(rule);
+                }
+            }
             this.safeWriteJson(configPath, conf);
             target.configured = true;
-            target.details = 'Registered AgentHub MCP server in ~/.claude.json';
+            target.details = 'Registered AgentHub MCP server and vault deny permissions in ~/.claude.json';
         }
         catch (err) {
             target.details = `Failed: ${err.message}`;
@@ -449,7 +466,7 @@ export class GlobalSyncManager {
 - Active Knowledge Base: \`${this.knowledgeBasePath}\`
 - High-level project structure: \`${path.join(this.knowledgeBasePath, 'PROJECTS_MAP.md')}\`
 - Cross-agent session continuity: \`${path.join(this.knowledgeBasePath, 'HANDOFF.md')}\`
-- Vault security: All secrets isolated in AgentHub Vault (\`${path.join(this.knowledgeBasePath, '.hub', 'vault.env')}\`).
+- Vault security: All secrets isolated in AgentHub Vault.
 - Skills directory: \`${path.join(this.knowledgeBasePath, 'skills')}\`
 `;
             this.safeWriteFile(rulesPath, content);
@@ -473,7 +490,7 @@ You are connected to an AgentHub Knowledge Base at \`${this.knowledgeBasePath}\`
 - **Cross-Agent Handoff**: \`${path.join(this.knowledgeBasePath, 'HANDOFF.md')}\` — read for active task continuity across different AI systems.
 - **Skills Directory**: \`${path.join(this.knowledgeBasePath, 'skills')}\` — on-demand engineering playbooks.
 - **Meta-Skill Guide**: \`${path.join(this.knowledgeBasePath, 'skills', 'agenthub-guide.md')}\`.
-- **Zero-Leak Vault**: Secrets reside in AgentHub Vault (\`${path.join(this.knowledgeBasePath, '.hub', 'vault.env')}\`). Never leak raw tokens.
+- **Zero-Leak Vault**: Secrets reside in AgentHub Vault. Never leak raw tokens.
 
 ## Tools & Commands
 - Start MCP Server: \`agenthub serve-mcp --kb "${this.knowledgeBasePath}"\`
@@ -483,6 +500,44 @@ You are connected to an AgentHub Knowledge Base at \`${this.knowledgeBasePath}\`
             this.safeWriteFile(skillPath, skillContent);
             target.configured = true;
             target.details = 'Updated agenthub_rules.md & installed native skill in ~/.gemini/config/skills/agenthub/';
+        }
+        catch (err) {
+            target.details = `Failed: ${err.message}`;
+        }
+        return target;
+    }
+    /**
+     * Sync ZCode (z.ai) global MCP settings
+     */
+    syncZCode() {
+        const configPath = path.join(os.homedir(), '.zcode', 'mcp.json');
+        const target = {
+            name: 'ZCode (z.ai)',
+            path: configPath,
+            configured: false,
+            details: '',
+        };
+        try {
+            const zcodeBase = path.join(os.homedir(), '.zcode');
+            if (!fs.existsSync(zcodeBase)) {
+                target.details = 'Skipped: ZCode (.zcode) directory not found (not installed)';
+                return target;
+            }
+            const { data, parseError } = this.safeReadJson(configPath);
+            if (parseError) {
+                target.details = 'Skipped: Failed to parse ~/.zcode/mcp.json (file preserved)';
+                return target;
+            }
+            let conf = data || {};
+            if (!conf.mcpServers)
+                conf.mcpServers = {};
+            conf.mcpServers.agenthub = {
+                command: process.execPath,
+                args: [this.binPath, 'serve-mcp', '--kb', this.knowledgeBasePath],
+            };
+            this.safeWriteJson(configPath, conf);
+            target.configured = true;
+            target.details = 'Registered AgentHub MCP in ~/.zcode/mcp.json';
         }
         catch (err) {
             target.details = `Failed: ${err.message}`;
@@ -501,6 +556,7 @@ You are connected to an AgentHub Knowledge Base at \`${this.knowledgeBasePath}\`
             path.join(this.getAppDataDir(), 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json'),
             path.join(this.getAppDataDir(), 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings', 'cline_mcp_settings.json'),
             path.join(os.homedir(), '.cursor', 'mcp.json'),
+            path.join(os.homedir(), '.zcode', 'mcp.json'),
             path.join(os.homedir(), '.continue', 'config.json'),
             path.join(os.homedir(), '.continue', 'config.yaml'),
             path.join(os.homedir(), '.gemini', 'antigravity', 'agenthub_rules.md'),
@@ -555,6 +611,9 @@ You are connected to an AgentHub Knowledge Base at \`${this.knowledgeBasePath}\`
         }
         if (shouldSync('antigravity')) {
             targets.push(this.syncAntigravity());
+        }
+        if (shouldSync('zcode')) {
+            targets.push(this.syncZCode());
         }
         return {
             activeKnowledgeBase: this.knowledgeBasePath,

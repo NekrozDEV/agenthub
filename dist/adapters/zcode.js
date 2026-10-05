@@ -1,37 +1,37 @@
 import fs from 'fs';
 import path from 'path';
-import { MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
+import { MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeCleanupIgnoreFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
 import { GlobalSyncManager } from '../core/global-sync.js';
-export class ClineAdapter {
-    id = 'cline';
-    name = 'Cline (VS Code)';
+import { SecretVault } from '../core/vault.js';
+export class ZCodeAdapter {
+    id = 'zcode';
+    name = 'ZCode (z.ai)';
     generateConfig(knowledgeBasePath, skills, mcps) {
-        // 1. .clinerules
-        const clineRulesPath = path.join(knowledgeBasePath, '.clinerules');
+        // 1. .zcoderules and AGENTS.md
+        const zcodeRulesPath = path.join(knowledgeBasePath, '.zcoderules');
         const content = `${MANAGED_MARKER}
-# Cline Custom Instructions
+# ZCode Rules
 
-## Context & Workspace Navigation
-- Repositories are located inside \`projects/\`.
-- Check \`PROJECTS_MAP.md\` first to inspect project boundaries without blowing your context window.
-- If resuming an ongoing task from another AI, read \`HANDOFF.md\` for the latest checkpoint.
-
-## Skills & Operating Rules
-- Follow \`skills/agenthub-guide.md\` as your primary meta-operating guide.
-- Check \`skills/\` for specialized playbooks (${skills.map((s) => `\`${s}\``).join(', ')}). Load them only when relevant.
-
-## Security & Secrets
-- Never print or commit credentials. Sensitive keys reside in AgentHub Vault.
-- Run or recommend \`agenthub audit\` before committing changes.
+- Workspaces are situated under \`projects/\`.
+- Check \`PROJECTS_MAP.md\` to preserve context window.
+- Consult \`HANDOFF.md\` for session handoffs from other agents.
+- Follow \`skills/agenthub-guide.md\` and other active skills in \`skills/\`.
+- Strictly adhere to zero-secrets policy. Credentials are stored in AgentHub Vault.
 `;
-        safeWriteManagedRuleFile(clineRulesPath, content);
-        // 2. Local workspace MCP configuration (.vscode/cline_mcp_settings.json)
-        const vscodeDir = path.join(knowledgeBasePath, '.vscode');
-        if (!fs.existsSync(vscodeDir)) {
-            fs.mkdirSync(vscodeDir, { recursive: true });
+        safeWriteManagedRuleFile(zcodeRulesPath, content);
+        const agentsMdPath = path.join(knowledgeBasePath, 'AGENTS.md');
+        if (!fs.existsSync(agentsMdPath)) {
+            safeWriteManagedRuleFile(agentsMdPath, content);
         }
-        const mcpConfigPath = path.join(vscodeDir, 'cline_mcp_settings.json');
+        // 2. .zcodeignore
+        SecretVault.ensureIgnoreFile(knowledgeBasePath, '.zcodeignore');
+        // 3. .zcode/mcp.json (Safe merge with real executable path)
+        const zcodeDir = path.join(knowledgeBasePath, '.zcode');
+        if (!fs.existsSync(zcodeDir)) {
+            fs.mkdirSync(zcodeDir, { recursive: true });
+        }
+        const mcpConfigPath = path.join(zcodeDir, 'mcp.json');
         const binPath = getAgentHubBinPath();
         let conf = { mcpServers: {} };
         if (fs.existsSync(mcpConfigPath)) {
@@ -57,21 +57,18 @@ export class ClineAdapter {
         conf.mcpServers.agenthub = {
             command: process.execPath,
             args: [binPath, 'serve-mcp', '--kb', knowledgeBasePath],
-            disabled: false,
-            autoApprove: [
-                'agenthub_list_skills',
-                'agenthub_get_skill',
-                'agenthub_get_project_map',
-                'agenthub_get_handoff',
-            ],
         };
         fs.writeFileSync(mcpConfigPath, JSON.stringify(conf, null, 2), 'utf8');
     }
     cleanup(knowledgeBasePath) {
-        const clineRulesPath = path.join(knowledgeBasePath, '.clinerules');
-        safeCleanupManagedFile(clineRulesPath);
-        const vscodeDir = path.join(knowledgeBasePath, '.vscode');
-        const mcpConfigPath = path.join(vscodeDir, 'cline_mcp_settings.json');
+        const zcodeRulesPath = path.join(knowledgeBasePath, '.zcoderules');
+        safeCleanupManagedFile(zcodeRulesPath);
+        const agentsMdPath = path.join(knowledgeBasePath, 'AGENTS.md');
+        safeCleanupManagedFile(agentsMdPath);
+        const zcodeIgnorePath = path.join(knowledgeBasePath, '.zcodeignore');
+        safeCleanupIgnoreFile(zcodeIgnorePath);
+        const zcodeDir = path.join(knowledgeBasePath, '.zcode');
+        const mcpConfigPath = path.join(zcodeDir, 'mcp.json');
         if (fs.existsSync(mcpConfigPath)) {
             try {
                 const raw = fs.readFileSync(mcpConfigPath, 'utf8');
@@ -97,6 +94,6 @@ export class ClineAdapter {
                 // Safe ignore
             }
         }
-        safeRemoveEmptyDir(vscodeDir);
+        safeRemoveEmptyDir(zcodeDir);
     }
 }

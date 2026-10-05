@@ -139,7 +139,7 @@ export class AgentHubMcpServer {
                     },
                     {
                         name: 'agenthub_check_vault_secret',
-                        description: 'Verify whether a required secret key exists in the Vault and return its masked preview. NEVER leaks the raw value.',
+                        description: 'Verify whether a required secret key exists in the Vault and return its presence and metadata. NEVER leaks the raw value.',
                         inputSchema: {
                             type: 'object',
                             properties: {
@@ -327,7 +327,6 @@ export class AgentHubMcpServer {
                     const key = String(args?.key || '');
                     const has = this.vault.hasSecret(key);
                     const raw = this.vault.getSecret(key);
-                    const masked = raw ? LeakGuard.mask(raw) : null;
                     return {
                         content: [
                             {
@@ -335,8 +334,8 @@ export class AgentHubMcpServer {
                                 text: JSON.stringify({
                                     key,
                                     exists: has,
-                                    maskedPreview: masked,
                                     status: has ? 'AVAILABLE' : 'MISSING',
+                                    length: raw ? raw.length : 0,
                                 }, null, 2),
                             },
                         ],

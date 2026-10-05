@@ -5,15 +5,15 @@ import { getAgentHubBinPath } from '../core/config.js';
 import { GlobalSyncManager } from '../core/global-sync.js';
 import { SecretVault } from '../core/vault.js';
 
-export class CursorAdapter implements AgentAdapter {
-  id = 'cursor' as const;
-  name = 'Cursor AI';
+export class ZCodeAdapter implements AgentAdapter {
+  id = 'zcode' as const;
+  name = 'ZCode (z.ai)';
 
   generateConfig(knowledgeBasePath: string, skills: string[], mcps: string[]): void {
-    // 1. .cursorrules
-    const cursorRulesPath = path.join(knowledgeBasePath, '.cursorrules');
+    // 1. .zcoderules and AGENTS.md
+    const zcodeRulesPath = path.join(knowledgeBasePath, '.zcoderules');
     const content = `${MANAGED_MARKER}
-# Cursor Rules
+# ZCode Rules
 
 - Workspaces are situated under \`projects/\`.
 - Check \`PROJECTS_MAP.md\` to preserve context window.
@@ -21,17 +21,22 @@ export class CursorAdapter implements AgentAdapter {
 - Follow \`skills/agenthub-guide.md\` and other active skills in \`skills/\`.
 - Strictly adhere to zero-secrets policy. Credentials are stored in AgentHub Vault.
 `;
-    safeWriteManagedRuleFile(cursorRulesPath, content);
+    safeWriteManagedRuleFile(zcodeRulesPath, content);
 
-    // 2. Ensure .cursorignore
-    SecretVault.ensureIgnoreFile(knowledgeBasePath, '.cursorignore');
-
-    // 3. .cursor/mcp.json (Safe merge with real executable path)
-    const cursorDir = path.join(knowledgeBasePath, '.cursor');
-    if (!fs.existsSync(cursorDir)) {
-      fs.mkdirSync(cursorDir, { recursive: true });
+    const agentsMdPath = path.join(knowledgeBasePath, 'AGENTS.md');
+    if (!fs.existsSync(agentsMdPath)) {
+      safeWriteManagedRuleFile(agentsMdPath, content);
     }
-    const mcpConfigPath = path.join(cursorDir, 'mcp.json');
+
+    // 2. .zcodeignore
+    SecretVault.ensureIgnoreFile(knowledgeBasePath, '.zcodeignore');
+
+    // 3. .zcode/mcp.json (Safe merge with real executable path)
+    const zcodeDir = path.join(knowledgeBasePath, '.zcode');
+    if (!fs.existsSync(zcodeDir)) {
+      fs.mkdirSync(zcodeDir, { recursive: true });
+    }
+    const mcpConfigPath = path.join(zcodeDir, 'mcp.json');
     const binPath = getAgentHubBinPath();
 
     let conf: any = { mcpServers: {} };
@@ -60,14 +65,17 @@ export class CursorAdapter implements AgentAdapter {
   }
 
   cleanup(knowledgeBasePath: string): void {
-    const cursorRulesPath = path.join(knowledgeBasePath, '.cursorrules');
-    safeCleanupManagedFile(cursorRulesPath);
+    const zcodeRulesPath = path.join(knowledgeBasePath, '.zcoderules');
+    safeCleanupManagedFile(zcodeRulesPath);
 
-    const cursorIgnorePath = path.join(knowledgeBasePath, '.cursorignore');
-    safeCleanupIgnoreFile(cursorIgnorePath);
+    const agentsMdPath = path.join(knowledgeBasePath, 'AGENTS.md');
+    safeCleanupManagedFile(agentsMdPath);
 
-    const cursorDir = path.join(knowledgeBasePath, '.cursor');
-    const mcpConfigPath = path.join(cursorDir, 'mcp.json');
+    const zcodeIgnorePath = path.join(knowledgeBasePath, '.zcodeignore');
+    safeCleanupIgnoreFile(zcodeIgnorePath);
+
+    const zcodeDir = path.join(knowledgeBasePath, '.zcode');
+    const mcpConfigPath = path.join(zcodeDir, 'mcp.json');
     if (fs.existsSync(mcpConfigPath)) {
       try {
         const raw = fs.readFileSync(mcpConfigPath, 'utf8');
@@ -89,7 +97,7 @@ export class CursorAdapter implements AgentAdapter {
       }
     }
 
-    safeRemoveEmptyDir(cursorDir);
+    safeRemoveEmptyDir(zcodeDir);
   }
 }
 

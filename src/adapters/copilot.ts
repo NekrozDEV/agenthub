@@ -1,6 +1,5 @@
-import fs from 'fs';
 import path from 'path';
-import { AgentAdapter } from './base.js';
+import { AgentAdapter, MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
 
 export class CopilotAdapter implements AgentAdapter {
   id = 'copilot' as const;
@@ -8,12 +7,9 @@ export class CopilotAdapter implements AgentAdapter {
 
   generateConfig(knowledgeBasePath: string, skills: string[], mcps: string[]): void {
     const githubDir = path.join(knowledgeBasePath, '.github');
-    if (!fs.existsSync(githubDir)) {
-      fs.mkdirSync(githubDir, { recursive: true });
-    }
-
     const instructionsPath = path.join(githubDir, 'copilot-instructions.md');
-    const content = `# GitHub Copilot Custom Instructions (AgentHub Managed)
+    const content = `${MANAGED_MARKER}
+# GitHub Copilot Custom Instructions
 
 ## Workspace Architecture & Token Discipline
 - Multi-project workspaces live under \`projects/\`.
@@ -28,16 +24,18 @@ ${skills.map((s) => `  - \`skills/${s}\``).join('\n')}
 ## Zero-Leak Security Vault
 - **NEVER** generate code with hardcoded API keys, secrets, private keys, or passwords.
 - Always use environment variables for sensitive parameters.
-- Secrets are stored in AgentHub Vault (\`.hub/vault.env\`).
+- Secrets are stored in AgentHub Vault.
 `;
 
-    fs.writeFileSync(instructionsPath, content, 'utf8');
+    safeWriteManagedRuleFile(instructionsPath, content);
   }
 
   cleanup(knowledgeBasePath: string): void {
-    const instructionsPath = path.join(knowledgeBasePath, '.github', 'copilot-instructions.md');
-    if (fs.existsSync(instructionsPath)) {
-      fs.unlinkSync(instructionsPath);
-    }
+    const githubDir = path.join(knowledgeBasePath, '.github');
+    const instructionsPath = path.join(githubDir, 'copilot-instructions.md');
+    safeCleanupManagedFile(instructionsPath);
+
+    safeRemoveEmptyDir(githubDir);
   }
 }
+

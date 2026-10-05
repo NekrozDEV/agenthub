@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
 export class DeepSeekAdapter {
     id = 'deepseek-hermes';
     name = 'DeepSeek Harness & Hermes';
@@ -9,7 +10,8 @@ export class DeepSeekAdapter {
             fs.mkdirSync(configDir, { recursive: true });
         }
         const promptPath = path.join(configDir, 'system_prompt.md');
-        const promptContent = `# System Prompt for DeepSeek Harness / Hermes (AgentHub Managed)
+        const promptContent = `${MANAGED_MARKER}
+# System Prompt for DeepSeek Harness / Hermes
 
 You are an expert autonomous software engineer operating inside an AgentHub Knowledge Base.
 
@@ -20,12 +22,12 @@ You are an expert autonomous software engineer operating inside an AgentHub Know
 4. Active skills repository is located at \`skills/\`.
 5. Secrets and credentials are isolated in AgentHub Vault. Do not attempt to access or mirror raw secrets.
 `;
-        fs.writeFileSync(promptPath, promptContent, 'utf8');
+        safeWriteManagedRuleFile(promptPath, promptContent);
     }
     cleanup(knowledgeBasePath) {
         const configDir = path.join(knowledgeBasePath, '.deepseek');
-        if (fs.existsSync(configDir)) {
-            fs.rmSync(configDir, { recursive: true, force: true });
-        }
+        const promptPath = path.join(configDir, 'system_prompt.md');
+        safeCleanupManagedFile(promptPath);
+        safeRemoveEmptyDir(configDir);
     }
 }

@@ -40,7 +40,7 @@ Welcome to the AgentHub ecosystem. You are operating as an autonomous or semi-au
 ## 3. 🛡️ Zero-Leak Security Vault
 - **NEVER** output raw credentials, API tokens, passwords, database strings, or private keys in chat messages, commit messages, or source code.
 - If a project needs credentials:
-  - Check if the key exists in AgentHub Vault (\`.hub/vault.env\` or call \`agenthub_list_vault_keys\`).
+  - Check if the key exists in AgentHub Vault (call \`agenthub_list_vault_keys\` or use \`agenthub vault list\`).
   - Use environment variables (e.g., \`process.env.API_KEY\`) with appropriate fallback placeholders.
   - Direct the user to set missing secrets via: \`agenthub vault set <KEY> <VALUE>\`.
 - When uncertain about committed files or modified code, verify with \`agenthub audit\` or \`agenthub_audit_code\`.
@@ -131,7 +131,7 @@ Ensure code written or reviewed by AI agents is resilient against modern attack 
    - **Command Injection**: Never pass user input to \`exec\` or shell execution without strict whitelisting.
 3. **Secrets & Credential Hygiene**:
    - Never store API keys, tokens, or database connection strings in source code or git.
-   - Store credentials in AgentHub Vault (\`.hub/vault.env\`).
+   - Store credentials in AgentHub Vault (\`agenthub vault set <KEY> <VALUE>\`).
    - Run \`agenthub audit\` before committing.
 4. **Authentication & Session Security**:
    - Hash passwords with Argon2id or bcrypt (cost factor >= 12).
