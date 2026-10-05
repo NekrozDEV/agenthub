@@ -1,4 +1,4 @@
-export type SupportedAgent = 'antigravity' | 'claude-code' | 'deepseek-hermes' | 'opencode' | 'cursor' | 'codex' | 'windsurf' | 'cline' | 'roo-code' | 'continue' | 'copilot';
+export type SupportedAgent = 'antigravity' | 'claude-code' | 'deepseek-hermes' | 'opencode' | 'cursor' | 'codex' | 'windsurf' | 'cline' | 'roo-code' | 'continue' | 'copilot' | 'zcode';
 export type SupportedLanguage = 'en' | 'ru';
 export interface HubConfig {
     version: string;
@@ -44,9 +44,15 @@ export interface KnowledgeBaseInfo {
     mcpsCount: number;
 }
 export declare function listAllKnowledgeBases(): KnowledgeBaseInfo[];
+/**
+ * Critical system and workspace path protector
+ * Rejects root ('/', 'C:\'), user home dir, user directories, process.cwd(), and OS system dirs
+ */
+export declare function isCriticalSystemPath(targetPath: string): boolean;
 export declare function unregisterKnowledgeBase(kbPath: string, deleteFiles?: boolean): {
     success: boolean;
     wasActive: boolean;
+    error?: string;
 };
 export declare function resolveKnowledgeBasePath(explicitPath?: string): string;
 /**

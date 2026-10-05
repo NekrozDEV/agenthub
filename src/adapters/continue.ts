@@ -30,7 +30,7 @@ systemMessage: |
   1. All projects are stored under projects/. Consult PROJECTS_MAP.md before exploring large directories.
   2. For session continuity across multiple agents, check HANDOFF.md.
   3. Load specialized skills from skills/ (e.g. skills/agenthub-guide.md) on demand.
-  4. Never output or commit secrets. Credentials are kept in AgentHub Vault (.hub/vault.env).
+  4. Never output or commit secrets. Credentials are kept in AgentHub Vault.
 
 docs:
   - title: AgentHub Project Map

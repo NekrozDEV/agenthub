@@ -24,7 +24,7 @@ ${skills.map((s) => `  - \`skills/${s}\``).join('\n')}
 ## Zero-Leak Security Vault
 - **NEVER** generate code with hardcoded API keys, secrets, private keys, or passwords.
 - Always use environment variables for sensitive parameters.
-- Secrets are stored in AgentHub Vault (\`.hub/vault.env\`).
+- Secrets are stored in AgentHub Vault.
 `;
         fs.writeFileSync(instructionsPath, content, 'utf8');
     }

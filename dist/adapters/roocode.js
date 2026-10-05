@@ -13,7 +13,7 @@ export class RooCodeAdapter {
                     name: 'AgentHub Engineer',
                     roleDefinition: 'You are an expert autonomous software engineer operating within the AgentHub Knowledge Base ecosystem. You respect token limits, consult PROJECTS_MAP.md, load skills on demand, and uphold zero-leak secret security.',
                     groups: ['read', 'edit', 'browser', 'command', 'mcp'],
-                    customInstructions: 'Always consult skills/agenthub-guide.md. For multi-project orientation, check PROJECTS_MAP.md. For task state across agent sessions, inspect HANDOFF.md. Secrets are stored in .hub/vault.env and must never be echoed or committed.',
+                    customInstructions: 'Always consult skills/agenthub-guide.md. For multi-project orientation, check PROJECTS_MAP.md. For task state across agent sessions, inspect HANDOFF.md. Secrets are stored in AgentHub Vault and must never be echoed or committed.',
                 },
             ],
         }, null, 2);

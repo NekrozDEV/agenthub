@@ -31,6 +31,7 @@ export interface CliStrings {
   syncGlobalDone: (list: string) => string;
   auditDesc: string;
   auditFixOpt: string;
+  auditIncludeBackupsOpt: string;
   auditKbOpt: string;
   auditScanning: (path: string) => string;
   auditClean: string;
@@ -38,6 +39,7 @@ export interface CliStrings {
   auditValLabel: string;
   auditLineLabel: string;
   auditFixed: (key: string) => string;
+  auditBackupNotice: (bakPath: string) => string;
   auditFixTip: string;
   repomapDesc: string;
   repomapKbOpt: string;
@@ -47,6 +49,14 @@ export interface CliStrings {
   kbListDesc: string;
   kbUseDesc: string;
   kbRemoveDesc: string;
+  kbRemoveDeleteFilesOpt: string;
+  kbRemoveYesOpt: string;
+  kbRemoveConfirmPrompt: (path: string) => string;
+  kbRemoveNonInteractivePromptError: string;
+  kbRemoveCriticalError: (path: string) => string;
+  kbRemoveSuccessWithFiles: (name: string) => string;
+  kbRemoveSuccessRegistryOnly: (name: string) => string;
+  kbRemoveCancelled: string;
   kbEditDesc: string;
   handoffDesc: string;
   handoffCreateDesc: string;
@@ -131,6 +141,7 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     syncGlobalDone: (list) => `✓ Global IDEs synchronized: ${list}`,
     auditDesc: 'Scan projects for leaks of API tokens, passwords, and private keys (Leak Guard)',
     auditFixOpt: 'Automatically move discovered keys to Vault and redact them',
+    auditIncludeBackupsOpt: 'Include .bak backup files in leak scan (excluded by default)',
     auditKbOpt: 'Path to Knowledge Base',
     auditScanning: (p) => `🛡️ Scanning for secret and token leaks (${p})...`,
     auditClean: '✓ No leaks detected! All projects and configs are clean.',
@@ -138,6 +149,7 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     auditValLabel: 'Value:',
     auditLineLabel: 'Line:',
     auditFixed: (key) => `  ✓ Moved to Vault as '${key}' and redacted in file.`,
+    auditBackupNotice: (bakPath) => `  📁 Backup created: ${bakPath}\n  💡 Verify changes, then delete the .bak file to avoid retaining raw credentials on disk.`,
     auditFixTip: '\n💡 Run `agenthub audit --fix` to automatically move these keys to Vault!',
     repomapDesc: 'Build compact project architecture map to preserve context window',
     repomapKbOpt: 'Path to Knowledge Base',
@@ -147,6 +159,14 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     kbListDesc: 'List all registered Knowledge Bases and their status',
     kbUseDesc: 'Switch active default Knowledge Base',
     kbRemoveDesc: 'Remove a Knowledge Base from registry or disk',
+    kbRemoveDeleteFilesOpt: 'Also delete files from disk',
+    kbRemoveYesOpt: 'Confirm deletion without interactive prompt',
+    kbRemoveConfirmPrompt: (p) => `Are you sure you want to permanently delete all files in '${p}'?`,
+    kbRemoveNonInteractivePromptError: '✕ File deletion requires confirmation. Run with -y / --yes flag in non-interactive mode.',
+    kbRemoveCriticalError: (p) => `✕ Refused: path '${p}' is a critical system or workspace path!`,
+    kbRemoveSuccessWithFiles: (name) => `✓ Knowledge Base '${name}' removed including files from disk.`,
+    kbRemoveSuccessRegistryOnly: (name) => `✓ Knowledge Base '${name}' removed from AgentHub registry.`,
+    kbRemoveCancelled: 'Deletion cancelled.',
     kbEditDesc: 'Reconfigure an existing Knowledge Base',
     handoffDesc: 'Manage session handoffs and context between AI agents (Claude, Antigravity, DeepSeek, Windsurf, etc.)',
     handoffCreateDesc: 'Create task handoff checkpoint for the next agent',
@@ -229,6 +249,7 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     syncGlobalDone: (list) => `✓ Глобальные IDE синхронизированы: ${list}`,
     auditDesc: 'Сканировать проекты на утечки API-токенов, паролей и ключей (Leak Guard)',
     auditFixOpt: 'Автоматически перенести найденные ключи в Сейф и скрыть их',
+    auditIncludeBackupsOpt: 'Включать резервные копии (.bak) в сканирование утечек (по умолчанию исключены)',
     auditKbOpt: 'Путь к Базе Знаний',
     auditScanning: (p) => `🛡️ Сканирование на утечки секретов и токенов (${p})...`,
     auditClean: '✓ Утечек не обнаружено! Все проекты и конфиги чисты.',
@@ -236,6 +257,7 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     auditValLabel: 'Значение:',
     auditLineLabel: 'Строка:',
     auditFixed: (key) => `  ✓ Перенесено в Сейф как '${key}' и заменено в файле.`,
+    auditBackupNotice: (bakPath) => `  📁 Создана резервная копия: ${bakPath}\n  💡 Проверьте изменения и удалите .bak файл после проверки, чтобы не хранить открытые секреты на диске.`,
     auditFixTip: '\n💡 Запустите `agenthub audit --fix` для автоматического переноса этих ключей в Сейф!',
     repomapDesc: 'Построить компактную карту проектов для сохранения контекста',
     repomapKbOpt: 'Путь к Базе Знаний',
@@ -245,6 +267,14 @@ export const CLI_I18N: Record<SupportedLanguage, CliStrings> = {
     kbListDesc: 'Показать список всех зарегистрированных Баз Знаний',
     kbUseDesc: 'Сделать Базу Знаний активной по умолчанию',
     kbRemoveDesc: 'Удалить Базу Знаний из реестра или с диска',
+    kbRemoveDeleteFilesOpt: 'Также удалить файлы с диска',
+    kbRemoveYesOpt: 'Подтвердить удаление без интерактивного запроса',
+    kbRemoveConfirmPrompt: (p) => `Вы уверены, что хотите безвозвратно удалить все файлы в '${p}'?`,
+    kbRemoveNonInteractivePromptError: '✕ Удаление файлов с диска требует подтверждения. Запустите с флагом -y / --yes в неинтерактивном режиме.',
+    kbRemoveCriticalError: (p) => `✕ Отклонено: путь '${p}' является критическим системным путем или рабочей директорией!`,
+    kbRemoveSuccessWithFiles: (name) => `✓ База Знаний '${name}' удалена вместе с файлами с диска.`,
+    kbRemoveSuccessRegistryOnly: (name) => `✓ База Знаний '${name}' удалена из реестра AgentHub.`,
+    kbRemoveCancelled: 'Удаление отменено.',
     kbEditDesc: 'Перенастроить существующую Базу Знаний',
     handoffDesc: 'Управление эстафетой сессий и контекстом между разными AI (Claude, Antigravity, DeepSeek, Windsurf и др.)',
     handoffCreateDesc: 'Создать чекпоинт передачи задачи следующему агенту',

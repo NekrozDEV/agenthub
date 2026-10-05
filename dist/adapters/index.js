@@ -8,6 +8,7 @@ import { ClineAdapter } from './cline.js';
 import { RooCodeAdapter } from './roocode.js';
 import { ContinueAdapter } from './continue.js';
 import { CopilotAdapter } from './copilot.js';
+import { ZCodeAdapter } from './zcode.js';
 export const ALL_ADAPTERS = {
     antigravity: new AntigravityAdapter(),
     'claude-code': new ClaudeCodeAdapter(),
@@ -19,6 +20,7 @@ export const ALL_ADAPTERS = {
     'roo-code': new RooCodeAdapter(),
     continue: new ContinueAdapter(),
     copilot: new CopilotAdapter(),
+    zcode: new ZCodeAdapter(),
     codex: {
         id: 'codex',
         name: 'OpenAI Codex',

@@ -19,7 +19,7 @@
   <b>Universal Knowledge Base, Zero-Leak Security Vault, Context Optimizer & Multi-IDE MCP Server for AI Coding Agents</b>
 </p>
 
-*Connect once — empower all your AI agents across Windsurf, Cursor, Google Antigravity, Claude Code, Cline, Roo Code, Continue.dev, GitHub Copilot, DeepSeek, and OpenAI Codex.*
+*Connect once — empower all your AI agents across Windsurf, Cursor, Google Antigravity, Claude Code, Cline, Roo Code, Continue.dev, GitHub Copilot, DeepSeek, ZCode (z.ai), and OpenAI Codex.*
 
 </div>
 
@@ -68,8 +68,8 @@ agenthub
 
 #### Alternative: Install from GitHub
 ```bash
-# Directly from GitHub archive
-npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+# Directly from GitHub archive (master branch)
+npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/master.tar.gz
 
 # Or via Git repository
 npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
@@ -103,7 +103,7 @@ You are **not locked into a single directory**. OpenAgentHub supports two flexib
 1. **Central Hub Mode (Mono-Hub)**:  
    Store your active repositories inside `projects/` (e.g. `~/AiKnowledgeBase/projects/my-app`). Agents running directly in this workspace benefit from local rules, shared meta-skills, and `PROJECTS_MAP.md`.
 2. **Global Mode (Any Project Anywhere via MCP)**:  
-   Keep your projects anywhere on your filesystem (e.g. `C:\dev\ecommerce` or `/home/user/backend`). Thanks to the built-in **AgentHub MCP Server**, your agents in **Windsurf, Cursor, VS Code (Cline/Roo Code), Continue, and Claude Desktop** automatically access your central skills, project map, vault keys, and session checkpoints on the fly!
+   Keep your projects anywhere on your filesystem (e.g. `C:\dev\ecommerce` or `/home/user/backend`). Thanks to the built-in **AgentHub MCP Server**, your agents in **Windsurf, Cursor, VS Code (Cline/Roo Code), Continue, Claude Desktop, and ZCode** automatically access your central skills, project map, vault keys, and session checkpoints on the fly!
 
 ---
 
@@ -119,7 +119,7 @@ When you run `agenthub init` (or simply `agenthub`), the CLI wizard greets you w
 
 The wizard guides you through:
 1. **Selecting your Knowledge Base directory**
-2. **Choosing your active AI systems & IDEs** (Windsurf, Cursor, Antigravity, Cline, Roo Code, Continue, Claude Code, Copilot, DeepSeek)
+2. **Choosing your active AI systems & IDEs** (Windsurf, Cursor, Antigravity, Cline, Roo Code, Continue, Claude Code, Copilot, DeepSeek, ZCode)
 3. **Automatic Global IDE & MCP Configuration**: Seamlessly configures config files across your operating system.
 
 Your preferred language is saved to `.hub/config.json`.
@@ -136,15 +136,15 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 * `agenthub_create_handoff`: Creates a task checkpoint for the next agent.
 * `agenthub_get_handoff`: Reads the latest task checkpoint and current status.
 * `agenthub_list_vault_keys`: Lists stored secret key names without leaking their values.
-* `agenthub_check_vault_secret`: Confirms if a specific secret exists.
+* `agenthub_check_vault_secret`: Confirms if a specific secret exists and returns presence status and length without leaking token previews.
 * `agenthub_list_mcps`: Discovers configured external MCP tool definitions.
 * `agenthub_audit_code`: Inspects code snippets for exposed credentials and masks them.
 * **Resources & Prompts**: `agenthub://projects-map`, `agenthub://handoff`, `agenthub://guide`, and the `agenthub_resume_task` prompt.
 
 ### 2. 🛡️ Zero-Leak Security Vault
-* All sensitive credentials (API tokens, database strings, private keys) reside in `.hub/vault.env`.
-* Protected with strict filesystem permissions (`0600`) and **guaranteed Git exclusion** (`.gitignore`).
-* Agents only receive boolean confirmations or masked snippets (`sk-...def`), preventing prompt injection leaks.
+* **Local Storage & Pre-Read Sanitization**: All sensitive credentials reside in `.hub/vault.env` with strict `0600` filesystem permissions and **guaranteed Git exclusion** (`.gitignore`).
+* **Multi-IDE Agent Isolation**: Automatically generates and maintains `.cursorignore`, `.codeiumignore`, `.continueignore`, and `.zcodeignore` (blocking `.hub/`, `*.env*`, `.env*`, and `*.bak`), plus Claude Code deny rules (`Read(.hub/**)`, `Read(**/.env*)`, `Glob(.hub/**)`, `Grep(.hub/**)`).
+* **Strict Non-Disclosure**: AI agents receive only boolean confirmations, key names, and length metadata (`{ key, exists, status, length }`). No raw values, token snippets, or partial token prefixes are ever exposed.
 
 ### 3. 📉 Smart On-Demand Context Loading
 * Traditional setups inject thousands of lines of documentation on every interaction.
@@ -163,8 +163,9 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 * Educates agents on token conservation, vault usage, handoff protocol, and safe multi-project navigation.
 
 ### 6. 🔍 Secret Inspector & Leak Guard
-* Automatically scans codebases and configs for high-entropy tokens and API key patterns (OpenAI, Anthropic, GitHub, AWS, Stripe, Postgres, private keys).
-* Run `agenthub audit --fix` to detect plain-text secrets and safely migrate them into the Vault.
+* Automatically scans codebases and configs for high-entropy tokens and API key patterns (OpenAI, Anthropic, GitHub, AWS, Stripe, Postgres, private keys). Unlike static git scanners like Gitleaks that only inspect git commits or CI, Leak Guard operates at both runtime (Stdio MCP tool `agenthub_audit_code`) and filesystem level (`agenthub audit`), automatically redacting exposed credentials into the Zero-Leak Vault.
+* **Supported Auto-Redaction Whitelist**: Safely redacts `.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`, `.py`, `.json`, and authentic `.env` variants (`.env`, `.env.local`, `config.env.local`). Code files in compiled languages (Go, Rust, Java, C++) are strictly protected against syntax corruption and require manual rotation.
+* **Non-Destructive Backups**: Automatically creates `.bak` backups prior to modifying any file. Use `agenthub audit --include-backups` to inspect backups during security reviews.
 
 ### 7. 🗺️ Smart RepoMap (`PROJECTS_MAP.md`)
 * Automatically indexes all repositories under `projects/` and builds a high-density architectural summary under 500 tokens.
@@ -178,6 +179,7 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
   * **Continue.dev**: `~/.continue/config.yaml`
   * **Claude Code & Desktop**: `~/.claude.json`, `claude_desktop_config.json`
   * **Google Antigravity**: `~/.gemini/antigravity/` rule file & native skill
+  * **ZCode (z.ai)**: `~/.zcode/mcp.json`, `.zcoderules`, `.zcodeignore`
 
 ---
 
@@ -188,10 +190,11 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 | `agenthub init [dir]` | Launch the interactive bilingual setup wizard |
 | `agenthub serve-mcp [--kb <path>]` | Run the built-in Stdio MCP Server for IDEs |
 | `agenthub use <dir>` | Set active default Knowledge Base globally across the OS |
-| `agenthub kb [list\|use\|remove\|edit]` | Manage, switch, edit, or delete registered Knowledge Bases |
+| `agenthub kb [list\|use\|edit]` | List, switch, or edit registered Knowledge Bases |
+| `agenthub kb remove <path> [-y, --yes] [--delete-files]` | Safely remove Knowledge Base from registry or delete files with confirmation |
 | `agenthub global [--all\|--restore]` | Check, sync, or restore IDE configurations from backups (`.bak`) |
 | `agenthub sync [-g, --global]` | Synchronize adapters, RepoMap, skills, and IDE configs |
-| `agenthub audit [--fix]` | Run Leak Guard secret audit with optional auto-migration to Vault |
+| `agenthub audit [--fix] [--include-backups]` | Run Leak Guard secret audit (optionally including `.bak` files) with auto-migration to Vault |
 | `agenthub repomap` | Rebuild `PROJECTS_MAP.md` project architecture map |
 | `agenthub handoff create -t "Task"` | Create a cross-agent task checkpoint |
 | `agenthub handoff prompt <Agent>` | Generate resumption prompt for a new AI session |
@@ -303,10 +306,9 @@ agenthub init
 agenthub
 ```
 
-#### Альтернатива: Установка через GitHub
 ```bash
-# Напрямую из архива GitHub (Windows, macOS, Linux)
-npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+# Напрямую из архива GitHub (ветка master)
+npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/master.tar.gz
 
 # Либо через Git
 npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
@@ -340,7 +342,7 @@ npm link
 1. **Режим Центрального Хаба (Mono-Hub)**:  
    Все ваши репозитории и проекты находятся внутри директории `projects/` Базы Знаний (например, `D:\AiBase\projects\my-app`). Агенты работают прямо в этой папке, автоматически используя общие скилы и `PROJECTS_MAP.md`.
 2. **Глобальный режим (В любом проекте через MCP)**:  
-   Вы открываете **любой свой проект в любой папке на диске** (например, `C:\Work\my-project` или `/home/dev/api`) в Windsurf, Cursor, VS Code (Cline / Roo Code), Continue или Claude Desktop.  
+   Вы открываете **любой свой проект в любой папке на диске** (например, `C:\Work\my-project` или `/home/dev/api`) в Windsurf, Cursor, VS Code (Cline / Roo Code), Continue, Claude Desktop или ZCode.  
    Благодаря встроенному **AgentHub MCP Server** ваши агенты на лету получают доступ к общим скилам, карте проектов, эстафете сессий (`HANDOFF.md`) и Сейфу без копирования конфигов!
 
 ---
@@ -357,7 +359,7 @@ npm link
 
 Мастер помогает:
 1. Выбрать папку Единой Базы Знаний.
-2. Отметить используемые AI-системы и IDE (Windsurf, Cursor, Antigravity, Cline, Roo Code, Continue, Claude Code, Copilot, DeepSeek).
+2. Отметить используемые AI-системы и IDE (Windsurf, Cursor, Antigravity, Cline, Roo Code, Continue, Claude Code, Copilot, DeepSeek, ZCode).
 3. Включить автоматическую глобальную привязку IDE и регистрацию MCP-сервера.
 
 Выбранный язык и настройки сохраняются в `.hub/config.json`.
@@ -374,15 +376,15 @@ npm link
 * `agenthub_create_handoff`: создание чекпоинта текущей задачи.
 * `agenthub_get_handoff`: получение контекста и статуса текущей задачи.
 * `agenthub_list_vault_keys`: список названий ключей в Сейфе без раскрытия значений.
-* `agenthub_check_vault_secret`: проверка наличия секрета в Сейфе.
+* `agenthub_check_vault_secret`: проверка наличия секрета в Сейфе со статусом и длиной (без утечки превью).
 * `agenthub_list_mcps`: список настроенных внешних MCP инструментов.
 * `agenthub_audit_code`: инспекция кода на случайные утечки токенов с маскированием.
 * **Ресурсы MCP**: `agenthub://projects-map`, `agenthub://handoff`, `agenthub://guide` и промпт `agenthub_resume_task`.
 
 ### 2. 🛡️ Zero-Leak Security Vault (Сейф секретов)
-* Все ключи и токены (OpenAI, GitHub, DB URIs, Stripe) хранятся в `.hub/vault.env`.
-* Файл защищен правами `0600` и **гарантированно исключен из Git**.
-* Агенты видят только факт наличия ключа или маскированное значение (`sk-...abc`), исключая утечки через промпт-инъекции.
+* **Локальная изоляция**: Все ключи и токены хранятся в `.hub/vault.env` с правами `0600` и **гарантированно исключены из Git** (`.gitignore`).
+* **Изоляция контекста агентов**: Автоматически поддерживаются файлы игнорирования `.cursorignore`, `.codeiumignore`, `.continueignore` и `.zcodeignore` (скрывающие `.hub/`, `*.env*`, `.env*`, `*.bak`), а также запреты прав в Claude Code (`Read(.hub/**)`, `Read(**/.env*)` и др.).
+* **Строгое сокрытие**: Агенты получают только факт наличия ключа, статус и длину (`{ key, exists, status, length }`), исключая утечки через промпт-инъекции или превью токенов.
 
 ### 3. 📉 Умная экономия контекста (On-Demand Loading)
 * Вместо загрузки тяжелых инструкций в каждый запрос агенты получают компактное оглавление (~200 токенов) и подгружают детали только при необходимости, предотвращая раздувание контекста.
@@ -400,8 +402,9 @@ npm link
 * Служит универсальной инструкцией для любых LLM по контекстной дисциплине, безопасной работе с секретами и передаче задач.
 
 ### 6. 🔍 Secret Inspector & Leak Guard (Защита от утечек)
-* Сканирует репозитории на случайные токены (OpenAI, Anthropic, GitHub, AWS, Stripe, DB URIs, приватные ключи).
-* Команда `agenthub audit --fix` находит открытые ключи, маскирует их в исходниках и безопасно переносит в Сейф.
+* Сканирует репозитории на случайные токены (OpenAI, Anthropic, GitHub, AWS, Stripe, DB URIs, приватные ключи). В отличие от статических git-сканеров вроде Gitleaks, проверяющих только коммиты, Leak Guard работает в рантайме (через Stdio MCP инструмент `agenthub_audit_code`) и на уровне рабочей директории (`agenthub audit`), безопасно перемещая секреты в Сейф.
+* **Белый список форматов авто-скрытия**: Поддерживаются `.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`, `.py`, `.json` и проверенные `.env` файлы (`.env`, `.env.local`, `config.env.local`). Компилируемые языки (Go, Rust, Java, C++) защищены от сбоев синтаксиса и требуют ручной ротации.
+* **Безопасные копии**: Создает резервные копии `.bak` перед редактированием файлов. Для инспекции резервных копий используйте флаг `--include-backups`.
 
 ### 7. 🗺️ RepoMap (Умная карта всех проектов)
 * Сканирует директорию `projects/` и генерирует сжатую архитектурную карту `PROJECTS_MAP.md` (< 500 токенов).
@@ -415,6 +418,7 @@ npm link
   * **Continue.dev**: `~/.continue/config.yaml`
   * **Claude Code & Desktop**: `~/.claude.json`, `claude_desktop_config.json`
   * **Google Antigravity**: `~/.gemini/antigravity/` и нативный скил
+  * **ZCode (z.ai)**: `~/.zcode/mcp.json`, `.zcoderules`, `.zcodeignore`
 
 ---
 
@@ -425,10 +429,11 @@ npm link
 | `agenthub init [dir]` | Интерактивный двуязычный мастер настройки |
 | `agenthub serve-mcp [--kb <path>]` | Запуск Stdio MCP сервера для IDE и агентов |
 | `agenthub use <dir>` | Установить активную Базу Знаний по умолчанию для всей системы |
-| `agenthub kb [list\|use\|remove\|edit]` | Управление, переключение, редактирование и удаление Баз Знаний |
+| `agenthub kb [list\|use\|edit]` | Список, переключение и редактирование Баз Знаний |
+| `agenthub kb remove <path> [-y, --yes] [--delete-files]` | Безопасное удаление Базы Знаний из реестра или с диска с подтверждением |
 | `agenthub global [--all\|--restore]` | Проверить, синхронизировать или восстановить настройки IDE из копий (`.bak`) |
 | `agenthub sync [-g, --global]` | Синхронизация адаптеров, карты проектов, скилов и IDE |
-| `agenthub audit [--fix]` | Проверка на утечки ключей (Leak Guard) с авто-переносом в Сейф |
+| `agenthub audit [--fix] [--include-backups]` | Проверка на утечки ключей (Leak Guard, включая `.bak`) с авто-переносом в Сейф |
 | `agenthub repomap` | Перестроение карты проектов `PROJECTS_MAP.md` |
 | `agenthub handoff create -t "Задача"` | Фиксация чекпоинта для передачи другому AI |
 | `agenthub handoff prompt <Agent>` | Генерация стартового промпта для нового агента |
@@ -452,9 +457,10 @@ npm link
 | **Roo Code (VS Code)**| `.roomodes`, `.clinerules`, `cline_mcp_settings.json` | Специализированный режим `AgentHub Engineer` |
 | **Continue.dev** | `.continue/config.yaml`, `~/.continue/config.yaml` | Интеграция документов и MCP инструментов |
 | **GitHub Copilot** | `.github/copilot-instructions.md` | Стандарты чистого кода и запрет хардкода токенов |
-| **Anthropic Claude Code** | `CLAUDE.md`, `.claude.json`, `claude_desktop_config.json` | Оглавление скилов, MCP в Claude Desktop |
+| **Anthropic Claude Code** | `CLAUDE.md`, `.claude.json`, `claude_desktop_config.json` | Оглавление скилов, MCP в Claude Desktop, deny permissions |
 | **DeepSeek Harness & Hermes**| `.deepseek/system_prompt.md` | Промпты с оптимизацией токенов |
 | **OpenCode / OpenClaw** | `.opencode/config.json` | Автономный режим с песочницей `projects/` |
+| **ZCode (z.ai)** | `.zcoderules`, `AGENTS.md`, `.zcode/mcp.json`, `.zcodeignore` | Полная поддержка MCP, правила и изоляция секретов |
 | **OpenAI Codex** | Инструкции агентов | Унифицированные описания инструментов |
 
 ---

@@ -21,7 +21,7 @@ const I18N = {
         agentsMessage: 'Which AI systems and IDEs do you use? (Space to select, Enter to confirm):',
         skillsMessage: 'Select starter engineering skills to install (or deselect all to skip):',
         mcpsMessage: 'Select MCP tool templates to configure (or deselect all to skip):',
-        globalSyncMessage: 'Configure global IDE & AI integration (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) via MCP?',
+        globalSyncMessage: 'Configure global IDE & AI integration (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity, ZCode) via MCP?',
         spinnerInit: 'Initializing Knowledge Base structure...',
         spinnerRepoMap: 'Building smart project map (RepoMap)...',
         spinnerLocalSync: 'Synchronizing local adapters for selected AI systems...',
@@ -51,6 +51,7 @@ const I18N = {
             'roo-code': '.roomodes, .clinerules & Roo Code MCP settings',
             continue: 'config.yaml, slash commands & MCP integrations',
             copilot: 'Custom repository instructions & agent guidelines',
+            zcode: '.zcoderules, AGENTS.md & .zcode/mcp.json integrations',
         },
     },
     ru: {
@@ -61,7 +62,7 @@ const I18N = {
         agentsMessage: 'Какими AI-системами и IDE вы пользуетесь? (Пробел — выбор, Enter — подтвердить):',
         skillsMessage: 'Выберите стартовые инженерные скилы (или снимите выбор, чтобы пропустить):',
         mcpsMessage: 'Выберите шаблоны MCP-инструментов (или снимите выбор, чтобы пропустить):',
-        globalSyncMessage: 'Настроить глобальную интеграцию IDE и AI (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity) через MCP?',
+        globalSyncMessage: 'Настроить глобальную интеграцию IDE и AI (Claude Code ~/.claude.json, Claude Desktop, Windsurf, Cursor, Cline, Roo Code, Continue, Antigravity, ZCode) через MCP?',
         spinnerInit: 'Инициализация структуры Базы Знаний...',
         spinnerRepoMap: 'Построение умной карты проектов (RepoMap)...',
         spinnerLocalSync: 'Синхронизация локальных адаптеров для выбранных AI-систем...',
@@ -91,6 +92,7 @@ const I18N = {
             'roo-code': '.roomodes, .clinerules и настройки Roo Code MCP',
             continue: 'config.yaml, слэш-команды и MCP интеграции',
             copilot: 'Инструкции репозитория и руководства для агентов',
+            zcode: 'Интеграции .zcoderules, AGENTS.md и .zcode/mcp.json',
         },
     },
 };

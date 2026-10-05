@@ -22,7 +22,7 @@ ${skills.map((s) => `  - \`skills/${s}\``).join('\n')}
 
 ## Security & Secrets (Zero-Leak)
 - NEVER expose, print, or commit API tokens, passwords, or keys.
-- Credentials are isolated in AgentHub Vault (\`.hub/vault.env\`).
+- Credentials are isolated in AgentHub Vault.
 - If an environment variable is missing, inform the user to configure it via \`agenthub vault set <KEY> <VALUE>\`.
 
 ## MCP Integration

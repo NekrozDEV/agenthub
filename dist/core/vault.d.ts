@@ -25,6 +25,13 @@ export declare class SecretVault {
      * Returns a sanitized list of secret keys for UI and schema definitions without disclosing the actual values.
      */
     listKeys(): string[];
+    static readonly AGENT_IGNORE_ENTRIES: string[];
+    static readonly AGENT_IGNORE_FILES: string[];
+    /**
+     * Auto-generate and maintain agent ignore files (.cursorignore, .codeiumignore, .continueignore, .zcodeignore)
+     * preventing AI models from reading internal vault files, environment files, or backups.
+     */
+    static ensureAgentIgnoreFiles(knowledgeBasePath: string): void;
     /**
      * Check if gitignore in the knowledge base excludes the vault and safety backups
      */

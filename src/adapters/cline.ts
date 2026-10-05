@@ -23,7 +23,7 @@ export class ClineAdapter implements AgentAdapter {
 - Check \`skills/\` for specialized playbooks (${skills.map((s) => `\`${s}\``).join(', ')}). Load them only when relevant.
 
 ## Security & Secrets
-- Never print or commit credentials. Sensitive keys reside in AgentHub Vault (\`.hub/vault.env\`).
+- Never print or commit credentials. Sensitive keys reside in AgentHub Vault.
 - Run or recommend \`agenthub audit\` before committing changes.
 `;
     fs.writeFileSync(clineRulesPath, content, 'utf8');

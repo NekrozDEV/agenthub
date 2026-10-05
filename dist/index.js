@@ -2,8 +2,9 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
+import * as p from '@clack/prompts';
 import { runInitWizard } from './ui/wizard.js';
-import { loadConfig, resolveKnowledgeBasePath, setActiveKnowledgeBase, getPreferredLanguage, setPreferredLanguage, listAllKnowledgeBases, unregisterKnowledgeBase, } from './core/config.js';
+import { loadConfig, resolveKnowledgeBasePath, setActiveKnowledgeBase, getPreferredLanguage, setPreferredLanguage, listAllKnowledgeBases, unregisterKnowledgeBase, isCriticalSystemPath, } from './core/config.js';
 import { runMainMenu, runKbManager } from './ui/kb-menu.js';
 import { SecretVault } from './core/vault.js';
 import { LeakGuard } from './core/leak-guard.js';
@@ -141,11 +142,44 @@ export function buildCli(customLang) {
     kbCmd
         .command('remove <path>')
         .description(t.kbRemoveDesc)
-        .option('--delete-files', 'Also delete files from disk')
-        .action((kbPath, opts) => {
+        .option('--delete-files', t.kbRemoveDeleteFilesOpt)
+        .option('-y, --yes', t.kbRemoveYesOpt)
+        .action(async (kbPath, opts) => {
         const resolved = path.resolve(kbPath);
-        unregisterKnowledgeBase(resolved, !!opts.deleteFiles);
-        console.log(chalk.green(lang === 'ru' ? `✓ База Знаний '${path.basename(resolved)}' удалена.` : `✓ Knowledge Base '${path.basename(resolved)}' removed.`));
+        if (opts.deleteFiles) {
+            if (isCriticalSystemPath(resolved)) {
+                console.log(chalk.red(t.kbRemoveCriticalError(resolved)));
+                process.exitCode = 1;
+                return;
+            }
+            if (!opts.yes) {
+                if (!process.stdin.isTTY) {
+                    console.log(chalk.red(t.kbRemoveNonInteractivePromptError));
+                    process.exitCode = 1;
+                    return;
+                }
+                const confirmed = await p.confirm({
+                    message: t.kbRemoveConfirmPrompt(resolved),
+                    initialValue: false,
+                });
+                if (p.isCancel(confirmed) || !confirmed) {
+                    console.log(chalk.yellow(t.kbRemoveCancelled));
+                    return;
+                }
+            }
+        }
+        const res = unregisterKnowledgeBase(resolved, !!opts.deleteFiles);
+        if (!res.success) {
+            console.log(chalk.red(res.error || (lang === 'ru' ? '✕ Ошибка удаления Базы Знаний.' : '✕ Error removing Knowledge Base.')));
+            process.exitCode = 1;
+            return;
+        }
+        if (opts.deleteFiles) {
+            console.log(chalk.green(t.kbRemoveSuccessWithFiles(path.basename(resolved))));
+        }
+        else {
+            console.log(chalk.green(t.kbRemoveSuccessRegistryOnly(path.basename(resolved))));
+        }
     });
     kbCmd
         .command('manage')
@@ -252,12 +286,13 @@ export function buildCli(customLang) {
         .command('audit')
         .description(t.auditDesc)
         .option('--fix', t.auditFixOpt)
+        .option('--include-backups', t.auditIncludeBackupsOpt)
         .option('--kb <path>', t.auditKbOpt)
         .action(async (options) => {
         const kbPath = resolveKnowledgeBasePath(options.kb);
         const leakGuard = new LeakGuard(kbPath);
         console.log(orange(t.auditScanning(kbPath)));
-        const findings = leakGuard.scanDirectory();
+        const findings = leakGuard.scanDirectory(kbPath, !!options.includeBackups);
         if (findings.length === 0) {
             console.log(chalk.green(t.auditClean));
             return;
@@ -300,6 +335,8 @@ export function buildCli(customLang) {
                 const redacted = leakGuard.redactSecretInFile(f, envKey);
                 if (redacted) {
                     console.log(chalk.green(t.auditFixed(envKey)));
+                    const bakPath = `${f.filePath}.bak`;
+                    console.log(chalk.gray(t.auditBackupNotice(bakPath)));
                 }
             }
         }

@@ -2,12 +2,25 @@ import { spawn, execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import os from 'os';
 import { GlobalSyncManager } from '../dist/core/global-sync.js';
 import { CursorAdapter } from '../dist/adapters/cursor.js';
 import { ClineAdapter } from '../dist/adapters/cline.js';
 import { ContinueAdapter } from '../dist/adapters/continue.js';
 import { WindsurfAdapter } from '../dist/adapters/windsurf.js';
-import { DEFAULT_CONFIG, loadConfig, saveConfig, getPreferredLanguage, setPreferredLanguage, loadGlobalConfig } from '../dist/core/config.js';
+import { ZCodeAdapter } from '../dist/adapters/zcode.js';
+import {
+  DEFAULT_CONFIG,
+  loadConfig,
+  saveConfig,
+  getPreferredLanguage,
+  setPreferredLanguage,
+  loadGlobalConfig,
+  saveGlobalConfig,
+  isCriticalSystemPath,
+  unregisterKnowledgeBase,
+  AGENT_INFO,
+} from '../dist/core/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cliPath = path.join(__dirname, '..', 'dist', 'mcp', 'cli.js');
@@ -376,7 +389,13 @@ async function runMcpSuite() {
   if (checkData.key !== 'TEST_SECRET') {
     throw new Error('agenthub_check_vault_secret failed');
   }
-  console.log('✓ agenthub_check_vault_secret succeeded');
+  if (checkData.maskedPreview !== undefined) {
+    throw new Error('Security flaw: agenthub_check_vault_secret exposed maskedPreview!');
+  }
+  if (checkData.exists !== false || checkData.status !== 'MISSING' || checkData.length !== 0) {
+    throw new Error(`agenthub_check_vault_secret unexpected response for missing secret: ${JSON.stringify(checkData)}`);
+  }
+  console.log('✓ agenthub_check_vault_secret succeeded without exposing maskedPreview');
 
   // 10. Call agenthub_list_mcps
   const listMcpsRes = await send({
@@ -603,6 +622,336 @@ async function runMcpSuite() {
     throw new Error('prompts/get failed to generate resume prompt');
   }
   console.log('✓ prompts/list and prompts/get agenthub_resume_task verified');
+
+  // =========================================================================
+  // Test Suite 12: Security Hardening & Zero-Leak Isolation Verification
+  // =========================================================================
+  console.log('\n--- Test Suite 12: Security Hardening & Isolation ---');
+
+  // 12a. Verify isCriticalSystemPath guards against critical roots and paths
+  console.log('Test 12a: Testing isCriticalSystemPath...');
+  const rootPath = path.parse(process.cwd()).root;
+  if (!isCriticalSystemPath(rootPath)) {
+    throw new Error(`isCriticalSystemPath failed to reject root: ${rootPath}`);
+  }
+  if (!isCriticalSystemPath('/')) {
+    throw new Error('isCriticalSystemPath failed to reject /');
+  }
+  if (!isCriticalSystemPath('C:\\') && process.platform === 'win32') {
+    throw new Error('isCriticalSystemPath failed to reject C:\\');
+  }
+  if (!isCriticalSystemPath(os.homedir())) {
+    throw new Error('isCriticalSystemPath failed to reject os.homedir()');
+  }
+  if (!isCriticalSystemPath(process.cwd())) {
+    throw new Error('isCriticalSystemPath failed to reject process.cwd()');
+  }
+  if (!isCriticalSystemPath(path.dirname(os.homedir()))) {
+    throw new Error('isCriticalSystemPath failed to reject parent of homedir');
+  }
+  if (!isCriticalSystemPath(path.join(os.homedir(), 'Desktop'))) {
+    throw new Error('isCriticalSystemPath failed to reject Desktop');
+  }
+  if (!isCriticalSystemPath('/bin')) {
+    throw new Error('isCriticalSystemPath failed to reject /bin');
+  }
+  if (!isCriticalSystemPath('/etc')) {
+    throw new Error('isCriticalSystemPath failed to reject /etc');
+  }
+  if (!isCriticalSystemPath('/usr')) {
+    throw new Error('isCriticalSystemPath failed to reject /usr');
+  }
+  if (!isCriticalSystemPath('/usr/bin')) {
+    throw new Error('isCriticalSystemPath failed to reject /usr/bin');
+  }
+  if (!isCriticalSystemPath('/tmp')) {
+    throw new Error('isCriticalSystemPath failed to reject /tmp');
+  }
+  if (process.platform === 'win32') {
+    const winDir = process.env.WINDIR || 'C:\\Windows';
+    if (!isCriticalSystemPath(winDir)) {
+      throw new Error(`isCriticalSystemPath failed to reject WINDIR: ${winDir}`);
+    }
+    if (!isCriticalSystemPath(path.join(winDir, 'System32'))) {
+      throw new Error(`isCriticalSystemPath failed to reject System32`);
+    }
+    if (process.env.ProgramFiles && !isCriticalSystemPath(process.env.ProgramFiles)) {
+      throw new Error(`isCriticalSystemPath failed to reject ProgramFiles`);
+    }
+  }
+  const safeCustomPath = path.join(testKbDir, 'safe_subfolder_kb');
+  if (isCriticalSystemPath(safeCustomPath)) {
+    throw new Error(`isCriticalSystemPath incorrectly flagged safe subfolder as critical: ${safeCustomPath}`);
+  }
+  console.log('✓ isCriticalSystemPath strictly rejects root, homedir, cwd, and system paths while allowing safe subdirectories');
+
+  // 12b. Verify unregisterKnowledgeBase guards against deletion of unregistered / critical paths
+  console.log('Test 12b: Testing unregisterKnowledgeBase safeguards...');
+  const fakeUnregisteredDir = path.join(testKbDir, 'unregistered_dir');
+  fs.mkdirSync(fakeUnregisteredDir, { recursive: true });
+  const unregDeleteRes = unregisterKnowledgeBase(fakeUnregisteredDir, true);
+  if (unregDeleteRes.success !== false || !unregDeleteRes.error?.includes('not registered in knownKnowledgeBases')) {
+    throw new Error(`unregisterKnowledgeBase should refuse deletion of unregistered directory: ${JSON.stringify(unregDeleteRes)}`);
+  }
+  if (!fs.existsSync(fakeUnregisteredDir)) {
+    throw new Error('unregisterKnowledgeBase deleted unregistered directory despite refusal!');
+  }
+
+  const critDeleteRes = unregisterKnowledgeBase(process.cwd(), true);
+  if (critDeleteRes.success !== false || !critDeleteRes.error?.includes('critical system or workspace path')) {
+    throw new Error(`unregisterKnowledgeBase should refuse deletion of critical path: ${JSON.stringify(critDeleteRes)}`);
+  }
+
+  // Test safe deletion of registered path
+  const originalGlobalConf = loadGlobalConfig();
+  try {
+    const safeRegisteredDir = path.join(testKbDir, 'registered_temp_kb');
+    fs.mkdirSync(safeRegisteredDir, { recursive: true });
+    fs.writeFileSync(path.join(safeRegisteredDir, 'test.txt'), 'hello', 'utf8');
+
+    const tempGlobalConf = loadGlobalConfig();
+    if (!tempGlobalConf.knownKnowledgeBases) tempGlobalConf.knownKnowledgeBases = [];
+    tempGlobalConf.knownKnowledgeBases.push(safeRegisteredDir);
+    saveGlobalConfig(tempGlobalConf);
+
+    // Unregister without deleting files
+    const unregNoDelete = unregisterKnowledgeBase(safeRegisteredDir, false);
+    if (!unregNoDelete.success || !fs.existsSync(safeRegisteredDir)) {
+      throw new Error(`unregisterKnowledgeBase failed or deleted files when deleteFiles=false: ${JSON.stringify(unregNoDelete)}`);
+    }
+
+    // Re-register and unregister with deleting files
+    tempGlobalConf.knownKnowledgeBases.push(safeRegisteredDir);
+    saveGlobalConfig(tempGlobalConf);
+    const unregWithDelete = unregisterKnowledgeBase(safeRegisteredDir, true);
+    if (!unregWithDelete.success || fs.existsSync(safeRegisteredDir)) {
+      throw new Error(`unregisterKnowledgeBase failed to delete registered files when deleteFiles=true: ${JSON.stringify(unregWithDelete)}`);
+    }
+  } finally {
+    saveGlobalConfig(originalGlobalConf);
+  }
+  console.log('✓ unregisterKnowledgeBase strictly enforces registration and system path guards before file deletion');
+
+  // 12c. Verify SecretVault.ensureAgentIgnoreFiles and vault.env truthful comments
+  console.log('Test 12c: Testing SecretVault agent ignore files and vault.env comment...');
+  const ignoreTestDir = path.join(testKbDir, 'ignore_test_kb');
+  fs.mkdirSync(ignoreTestDir, { recursive: true });
+  SecretVault.ensureAgentIgnoreFiles(ignoreTestDir);
+
+  const expectedIgnoreFiles = ['.cursorignore', '.codeiumignore', '.continueignore', '.zcodeignore'];
+  for (const ignFile of expectedIgnoreFiles) {
+    const fullIgnPath = path.join(ignoreTestDir, ignFile);
+    if (!fs.existsSync(fullIgnPath)) {
+      throw new Error(`Missing expected ignore file: ${ignFile}`);
+    }
+    const ignContent = fs.readFileSync(fullIgnPath, 'utf8');
+    if (!ignContent.includes('.hub/') || !ignContent.includes('*.env*') || !ignContent.includes('.env*') || !ignContent.includes('*.bak')) {
+      throw new Error(`Ignore file ${ignFile} missing required patterns: ${ignContent}`);
+    }
+  }
+
+  // Test idempotency: calling ensureAgentIgnoreFiles again should not duplicate entries
+  SecretVault.ensureAgentIgnoreFiles(ignoreTestDir);
+  const cursorIgnContent = fs.readFileSync(path.join(ignoreTestDir, '.cursorignore'), 'utf8');
+  const hubMatches = cursorIgnContent.match(/\.hub\//g) || [];
+  if (hubMatches.length !== 1) {
+    throw new Error(`.cursorignore duplicated entries after second call: count=${hubMatches.length}`);
+  }
+
+  // Verify truthful comment in vault.env
+  const vaultInstance = new SecretVault(ignoreTestDir);
+  vaultInstance.setSecret('SAMPLE_KEY', 'sample_val');
+  const vaultFileContent = fs.readFileSync(path.join(ignoreTestDir, '.hub', 'vault.env'), 'utf8');
+  if (vaultFileContent.toLowerCase().includes('never stored in plain text on disk')) {
+    throw new Error('Misleading comment still present in vault.env!');
+  }
+  if (vaultFileContent.includes('injected into MCP processes by AgentHub Proxy')) {
+    throw new Error('Old misleading MCP proxy comment still present in vault.env!');
+  }
+  if (!vaultFileContent.includes('ZERO-LEAK SECURITY') || !vaultFileContent.includes('Stored locally for AgentHub tools')) {
+    throw new Error(`vault.env missing truthful security comment: ${vaultFileContent}`);
+  }
+  console.log('✓ SecretVault creates and maintains all agent ignore files idempotently with truthful comments');
+
+  // 12d. Verify LeakGuard.isEnvFile extension blacklist and whitelist
+  console.log('Test 12d: Testing LeakGuard.isEnvFile with blacklist/whitelist...');
+  const blacklistedEnvFiles = [
+    'deploy.env.yaml',
+    'deploy.env.yml',
+    'production.env.backup',
+    'config.env.json',
+    'index.env.js',
+    'settings.env.ts',
+    'script.env.py',
+    'data.env.bak',
+    'service.env.sh',
+    'deploy.env.yaml.local',
+    '.env.yaml.local',
+    'test.env.js.local',
+    'app.env.ts.bak',
+    'data.env.tar.gz',
+  ];
+  for (const bf of blacklistedEnvFiles) {
+    if (LeakGuard.isEnvFile(bf)) {
+      throw new Error(`Security flaw: LeakGuard.isEnvFile incorrectly accepted blacklisted file: ${bf}`);
+    }
+    if (bf.endsWith('.bak') || bf.endsWith('.backup')) {
+      if (LeakGuard.isSupportedFile(bf)) {
+        throw new Error(`LeakGuard.isSupportedFile accepted backup file: ${bf}`);
+      }
+    }
+  }
+
+  const validEnvFiles = [
+    '.env',
+    '.env.local',
+    '.env.development',
+    '.env.staging',
+    '.env.production',
+    '.env.test',
+    'config.env.local',
+    'production.env',
+    'local.env',
+  ];
+  for (const vf of validEnvFiles) {
+    if (!LeakGuard.isEnvFile(vf)) {
+      throw new Error(`LeakGuard.isEnvFile rejected valid env file: ${vf}`);
+    }
+    if (!LeakGuard.isSupportedFile(vf)) {
+      throw new Error(`LeakGuard.isSupportedFile rejected valid env file: ${vf}`);
+    }
+  }
+  console.log('✓ LeakGuard.isEnvFile strictly blacklists code/backup extensions and accepts valid .env variants');
+
+  // 12e. Verify LeakGuard.scanDirectory with includeBackups flag
+  console.log('Test 12e: Testing LeakGuard.scanDirectory includeBackups option...');
+  const bakDir = path.join(testKbDir, 'bak_scan_test');
+  fs.mkdirSync(bakDir, { recursive: true });
+  fs.writeFileSync(path.join(bakDir, 'leaky.js.bak'), 'const leak = "sk-888888888888888888888888";\n', 'utf8');
+
+  const noBakFindings = guardInstance.scanDirectory(bakDir, false);
+  if (noBakFindings.some(f => f.filePath.endsWith('.bak'))) {
+    throw new Error('LeakGuard.scanDirectory(..., false) included .bak file!');
+  }
+
+  const withBakFindings = guardInstance.scanDirectory(bakDir, true);
+  if (!withBakFindings.some(f => f.filePath.endsWith('.bak') && f.matchedSecret.includes('sk-888888888888888888888888'))) {
+    throw new Error('LeakGuard.scanDirectory(..., true) failed to detect leak in .bak file!');
+  }
+  console.log('✓ LeakGuard.scanDirectory honors includeBackups parameter accurately');
+
+  // 12f. Verify ZCodeAdapter configuration and cleanup
+  console.log('Test 12f: Testing ZCodeAdapter...');
+  if (!AGENT_INFO.zcode || !AGENT_INFO.zcode.name.includes('ZCode')) {
+    throw new Error(`AGENT_INFO missing zcode metadata: ${JSON.stringify(AGENT_INFO.zcode)}`);
+  }
+  const zcodeTestDir = path.join(testKbDir, 'zcode_test_kb');
+  fs.mkdirSync(zcodeTestDir, { recursive: true });
+  const zcodeAdapter = new ZCodeAdapter();
+  await zcodeAdapter.generateConfig(zcodeTestDir, ['agenthub-guide.md'], []);
+
+  if (!fs.existsSync(path.join(zcodeTestDir, '.zcoderules'))) {
+    throw new Error('ZCodeAdapter failed to generate .zcoderules');
+  }
+  if (!fs.existsSync(path.join(zcodeTestDir, 'AGENTS.md'))) {
+    throw new Error('ZCodeAdapter failed to generate AGENTS.md');
+  }
+  if (!fs.existsSync(path.join(zcodeTestDir, '.zcodeignore'))) {
+    throw new Error('ZCodeAdapter failed to generate .zcodeignore');
+  }
+  const zcodeMcpFile = path.join(zcodeTestDir, '.zcode', 'mcp.json');
+  if (!fs.existsSync(zcodeMcpFile)) {
+    throw new Error('ZCodeAdapter failed to generate .zcode/mcp.json');
+  }
+  const zcodeMcp = JSON.parse(fs.readFileSync(zcodeMcpFile, 'utf8'));
+  if (!zcodeMcp.mcpServers?.agenthub || !zcodeMcp.mcpServers.agenthub.args.includes('serve-mcp')) {
+    throw new Error(`ZCodeAdapter produced invalid mcp.json: ${JSON.stringify(zcodeMcp)}`);
+  }
+  if (zcodeMcp.mcpServers.agenthub.args.some((a) => a.includes('node_modules'))) {
+    throw new Error('ZCodeAdapter contains broken node_modules path!');
+  }
+
+  // Test ZCode cleanup
+  await zcodeAdapter.cleanup(zcodeTestDir);
+  if (fs.existsSync(path.join(zcodeTestDir, '.zcoderules'))) {
+    throw new Error('ZCodeAdapter cleanup did not remove .zcoderules');
+  }
+
+  // Test GlobalSyncManager.syncZCode
+  const syncMgr = new GlobalSyncManager(zcodeTestDir);
+  const zcodeSyncResult = syncMgr.syncZCode();
+  if (!zcodeSyncResult.name.includes('ZCode')) {
+    throw new Error(`GlobalSyncManager.syncZCode failed: ${JSON.stringify(zcodeSyncResult)}`);
+  }
+  console.log('✓ ZCodeAdapter and syncZCode generate valid configurations with mcp.json, ignore rules, and clean up properly');
+
+  // 12g. Verify GlobalSyncManager Claude Code permissions.deny and install check
+  console.log('Test 12g: Testing GlobalSyncManager Claude Code permissions.deny...');
+  const globalSyncCode = fs.readFileSync(path.join(__dirname, '..', 'dist', 'core', 'global-sync.js'), 'utf8');
+  if (!globalSyncCode.includes('permissions.deny') || !globalSyncCode.includes('Read(.hub/**)')) {
+    throw new Error('GlobalSyncManager.syncClaudeCode does not configure permissions.deny for .hub/**');
+  }
+  if (!globalSyncCode.includes('.claude') && !globalSyncCode.includes('fs.existsSync')) {
+    throw new Error('GlobalSyncManager.syncClaudeCode does not check for ~/.claude existence');
+  }
+
+  // Live execution test of syncClaudeCode with temporary directory
+  const tempClaudeHome = path.join(testKbDir, 'mock_claude_home');
+  const tempClaudeDir = path.join(tempClaudeHome, '.claude');
+  fs.mkdirSync(tempClaudeDir, { recursive: true });
+  const originalHomedir = os.homedir;
+  try {
+    os.homedir = () => tempClaudeHome;
+    const claudeSyncMgr = new GlobalSyncManager(zcodeTestDir);
+    const claudeRes = claudeSyncMgr.syncClaudeCode();
+    if (!claudeRes.configured) {
+      throw new Error(`syncClaudeCode failed to configure mock claude home: ${JSON.stringify(claudeRes)}`);
+    }
+    const writtenClaudeConf = JSON.parse(fs.readFileSync(path.join(tempClaudeHome, '.claude.json'), 'utf8'));
+    if (!writtenClaudeConf.permissions?.deny?.includes('Read(.hub/**)')) {
+      throw new Error(`syncClaudeCode failed to write permissions.deny in config: ${JSON.stringify(writtenClaudeConf)}`);
+    }
+
+    // Verify pristine backup retention on second sync
+    fs.writeFileSync(path.join(tempClaudeHome, '.claude.json.bak'), 'PRISTINE_ORIGINAL', 'utf8');
+    claudeSyncMgr.syncClaudeCode();
+    const retainedBackup = fs.readFileSync(path.join(tempClaudeHome, '.claude.json.bak'), 'utf8');
+    if (retainedBackup !== 'PRISTINE_ORIGINAL') {
+      throw new Error('syncClaudeCode overwritten pristine .bak backup on second sync pass!');
+    }
+  } finally {
+    os.homedir = originalHomedir;
+  }
+  console.log('✓ GlobalSyncManager enforces Claude Code permissions.deny isolation for .hub and checks installation');
+
+  // 12h. Test agenthub_check_vault_secret with configured secret (no maskedPreview, schema { key, exists, status, length })
+  console.log('Test 12h: Testing agenthub_check_vault_secret on configured secret...');
+  const configuredCheckRes = await send({
+    jsonrpc: '2.0',
+    id: 17,
+    method: 'tools/call',
+    params: { name: 'agenthub_check_vault_secret', arguments: { key: matchingKeys[0] } },
+  });
+  const configuredData = JSON.parse(configuredCheckRes?.result?.content?.[0]?.text || '{}');
+  if (configuredData.exists !== true || configuredData.status !== 'AVAILABLE' || configuredData.length !== identicalSecret.length) {
+    throw new Error(`agenthub_check_vault_secret returned invalid data for configured secret: ${JSON.stringify(configuredData)}`);
+  }
+  if (configuredData.maskedPreview !== undefined) {
+    throw new Error(`Security leak: agenthub_check_vault_secret returned maskedPreview on configured secret: ${JSON.stringify(configuredData)}`);
+  }
+  console.log('✓ agenthub_check_vault_secret on configured secret returns safe metadata with zero token exposure');
+
+  // 12i. Verify CLI flags in help output
+  console.log('Test 12i: Testing CLI flags in help output...');
+  const auditHelp = execSync(`node "${mainBinPath}" audit --help`, { encoding: 'utf8' });
+  if (!auditHelp.includes('--include-backups')) {
+    throw new Error(`agenthub audit --help missing --include-backups flag: ${auditHelp}`);
+  }
+  const kbRemoveHelp = execSync(`node "${mainBinPath}" kb remove --help`, { encoding: 'utf8' });
+  if (!kbRemoveHelp.includes('-y, --yes') || !kbRemoveHelp.includes('--delete-files')) {
+    throw new Error(`agenthub kb remove --help missing -y or --delete-files flag: ${kbRemoveHelp}`);
+  }
+  console.log('✓ CLI commands support --include-backups, -y/--yes, and --delete-files flags cleanly');
 
   proc.kill();
   if (fs.existsSync(testKbDir)) fs.rmSync(testKbDir, { recursive: true, force: true });

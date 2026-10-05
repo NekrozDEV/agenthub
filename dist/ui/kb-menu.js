@@ -2,7 +2,7 @@ import * as p from '@clack/prompts';
 import chalk from 'chalk';
 import path from 'path';
 import readline from 'readline';
-import { listAllKnowledgeBases, setActiveKnowledgeBase, unregisterKnowledgeBase, getPreferredLanguage, } from '../core/config.js';
+import { listAllKnowledgeBases, setActiveKnowledgeBase, unregisterKnowledgeBase, isCriticalSystemPath, getPreferredLanguage, } from '../core/config.js';
 import { runInitWizard } from './wizard.js';
 import { printBanner } from './banner.js';
 import { checkForUpdates, renderUpdateNotice, performUpdate } from '../core/updater.js';
@@ -132,7 +132,19 @@ export async function runKbManager(customLang) {
                 initialValue: false,
             });
             if (!p.isCancel(deleteFiles)) {
-                unregisterKnowledgeBase(selectedPath, deleteFiles);
+                if (deleteFiles && isCriticalSystemPath(selectedPath)) {
+                    p.outro(chalk.red(lang === 'ru'
+                        ? `✕ Отклонено: путь '${selectedPath}' является критическим системным путем или рабочей директорией!`
+                        : `✕ Refused: path '${selectedPath}' is a critical system or workspace path!`));
+                    await pauseToReturn(lang);
+                    return;
+                }
+                const res = unregisterKnowledgeBase(selectedPath, deleteFiles);
+                if (!res.success) {
+                    p.outro(chalk.red(res.error || (lang === 'ru' ? '✕ Ошибка при удалении.' : '✕ Removal failed.')));
+                    await pauseToReturn(lang);
+                    return;
+                }
                 p.outro(chalk.green(lang === 'ru'
                     ? `✓ База Знаний '${path.basename(selectedPath)}' удалена${deleteFiles ? ' вместе с файлами.' : ' из реестра AgentHub.'}`
                     : `✓ Knowledge Base '${path.basename(selectedPath)}' removed${deleteFiles ? ' including files from disk.' : ' from registry.'}`));

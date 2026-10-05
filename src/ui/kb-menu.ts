@@ -6,6 +6,7 @@ import {
   listAllKnowledgeBases,
   setActiveKnowledgeBase,
   unregisterKnowledgeBase,
+  isCriticalSystemPath,
   loadConfig,
   getPreferredLanguage,
   SupportedLanguage,
@@ -162,7 +163,25 @@ export async function runKbManager(customLang?: SupportedLanguage): Promise<void
       });
 
       if (!p.isCancel(deleteFiles)) {
-        unregisterKnowledgeBase(selectedPath, deleteFiles as boolean);
+        if (deleteFiles && isCriticalSystemPath(selectedPath)) {
+          p.outro(
+            chalk.red(
+              lang === 'ru'
+                ? `✕ Отклонено: путь '${selectedPath}' является критическим системным путем или рабочей директорией!`
+                : `✕ Refused: path '${selectedPath}' is a critical system or workspace path!`
+            )
+          );
+          await pauseToReturn(lang);
+          return;
+        }
+
+        const res = unregisterKnowledgeBase(selectedPath, deleteFiles as boolean);
+        if (!res.success) {
+          p.outro(chalk.red(res.error || (lang === 'ru' ? '✕ Ошибка при удалении.' : '✕ Removal failed.')));
+          await pauseToReturn(lang);
+          return;
+        }
+
         p.outro(
           chalk.green(
             lang === 'ru'

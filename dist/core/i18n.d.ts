@@ -30,6 +30,7 @@ export interface CliStrings {
     syncGlobalDone: (list: string) => string;
     auditDesc: string;
     auditFixOpt: string;
+    auditIncludeBackupsOpt: string;
     auditKbOpt: string;
     auditScanning: (path: string) => string;
     auditClean: string;
@@ -37,6 +38,7 @@ export interface CliStrings {
     auditValLabel: string;
     auditLineLabel: string;
     auditFixed: (key: string) => string;
+    auditBackupNotice: (bakPath: string) => string;
     auditFixTip: string;
     repomapDesc: string;
     repomapKbOpt: string;
@@ -46,6 +48,14 @@ export interface CliStrings {
     kbListDesc: string;
     kbUseDesc: string;
     kbRemoveDesc: string;
+    kbRemoveDeleteFilesOpt: string;
+    kbRemoveYesOpt: string;
+    kbRemoveConfirmPrompt: (path: string) => string;
+    kbRemoveNonInteractivePromptError: string;
+    kbRemoveCriticalError: (path: string) => string;
+    kbRemoveSuccessWithFiles: (name: string) => string;
+    kbRemoveSuccessRegistryOnly: (name: string) => string;
+    kbRemoveCancelled: string;
     kbEditDesc: string;
     handoffDesc: string;
     handoffCreateDesc: string;

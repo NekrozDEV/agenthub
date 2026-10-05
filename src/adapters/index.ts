@@ -9,6 +9,7 @@ import { ClineAdapter } from './cline.js';
 import { RooCodeAdapter } from './roocode.js';
 import { ContinueAdapter } from './continue.js';
 import { CopilotAdapter } from './copilot.js';
+import { ZCodeAdapter } from './zcode.js';
 import { SupportedAgent } from '../core/config.js';
 
 export const ALL_ADAPTERS: Record<SupportedAgent, AgentAdapter> = {
@@ -22,6 +23,7 @@ export const ALL_ADAPTERS: Record<SupportedAgent, AgentAdapter> = {
   'roo-code': new RooCodeAdapter(),
   continue: new ContinueAdapter(),
   copilot: new CopilotAdapter(),
+  zcode: new ZCodeAdapter(),
   codex: {
     id: 'codex',
     name: 'OpenAI Codex',

@@ -14,7 +14,8 @@ export type SupportedAgent =
   | 'cline'
   | 'roo-code'
   | 'continue'
-  | 'copilot';
+  | 'copilot'
+  | 'zcode';
 
 export type SupportedLanguage = 'en' | 'ru';
 
@@ -93,6 +94,11 @@ export const AGENT_INFO: Record<SupportedAgent, { name: string; description: str
     name: 'GitHub Copilot',
     description: 'Custom repository instructions & agent guidelines',
     configFile: '.github/copilot-instructions.md',
+  },
+  zcode: {
+    name: 'ZCode (z.ai)',
+    description: '.zcoderules, AGENTS.md & .zcode/mcp.json integrations',
+    configFile: '.zcoderules / .zcode/mcp.json',
   },
 };
 
@@ -261,13 +267,193 @@ export function listAllKnowledgeBases(): KnowledgeBaseInfo[] {
   return list;
 }
 
-export function unregisterKnowledgeBase(kbPath: string, deleteFiles = false): { success: boolean; wasActive: boolean } {
+/**
+ * Critical system and workspace path protector
+ * Rejects root ('/', 'C:\'), user home dir, user directories, process.cwd(), and OS system dirs
+ */
+export function isCriticalSystemPath(targetPath: string): boolean {
+  if (!targetPath || typeof targetPath !== 'string') return true;
+  const trimmed = targetPath.trim().replace(/^["']|["']$/g, '');
+  if (!trimmed) return true;
+
+  const resolved = path.resolve(trimmed);
+  const normalized = path.normalize(resolved).replace(/[\\/]+$/, '').toLowerCase();
+
+  // 1. Root directory check (Unix '/' or Windows 'C:\', 'D:\', UNC roots, etc.)
+  const parsedRoot = path.parse(resolved).root;
+  const normalizedRoot = path.normalize(parsedRoot).replace(/[\\/]+$/, '').toLowerCase();
+  if (
+    normalized === normalizedRoot ||
+    normalized === '' ||
+    /^[a-z]:$/i.test(normalized) ||
+    /^[\\/]+$/.test(trimmed)
+  ) {
+    return true;
+  }
+
+  // 2. Current working directory
+  const cwdNormalized = path.normalize(process.cwd()).replace(/[\\/]+$/, '').toLowerCase();
+  if (normalized === cwdNormalized) {
+    return true;
+  }
+
+  // 3. User home directory ($HOME / os.homedir())
+  const home = os.homedir();
+  const homeNormalized = path.normalize(home).replace(/[\\/]+$/, '').toLowerCase();
+  if (normalized === homeNormalized) {
+    return true;
+  }
+
+  // 4. Parent of home directory (/home, /Users, C:\Users)
+  const homeParent = path.dirname(home);
+  const homeParentNormalized = path.normalize(homeParent).replace(/[\\/]+$/, '').toLowerCase();
+  if (normalized === homeParentNormalized) {
+    return true;
+  }
+
+  // 5. Standard user directories
+  const userDirs = [
+    path.join(home, 'Desktop'),
+    path.join(home, 'Documents'),
+    path.join(home, 'Downloads'),
+    path.join(home, 'Pictures'),
+    path.join(home, 'Music'),
+    path.join(home, 'Videos'),
+    path.join(home, '.config'),
+    path.join(home, '.agenthub'),
+    path.join(home, '.gemini'),
+  ];
+  if (process.env.APPDATA) userDirs.push(process.env.APPDATA);
+  if (process.env.LOCALAPPDATA) userDirs.push(process.env.LOCALAPPDATA);
+  if (process.env.USERPROFILE) userDirs.push(process.env.USERPROFILE);
+
+  for (const ud of userDirs) {
+    if (ud && path.normalize(ud).replace(/[\\/]+$/, '').toLowerCase() === normalized) {
+      return true;
+    }
+  }
+
+  // 6. Cross-platform Unix system directories (evaluated via POSIX path without drive prefix)
+  const normalizedPosix = normalized.replace(/^[a-z]:/i, '').replace(/\\/g, '/');
+
+  const exactUnixSystemDirs = new Set([
+    '/bin',
+    '/sbin',
+    '/usr',
+    '/usr/bin',
+    '/usr/sbin',
+    '/usr/local',
+    '/usr/local/bin',
+    '/usr/lib',
+    '/lib',
+    '/lib64',
+    '/etc',
+    '/var',
+    '/var/log',
+    '/var/tmp',
+    '/tmp',
+    '/dev',
+    '/proc',
+    '/sys',
+    '/opt',
+    '/boot',
+    '/root',
+    '/library',
+    '/system',
+    '/applications',
+    '/system32',
+    '/syswow64',
+    '/windows',
+  ]);
+
+  if (exactUnixSystemDirs.has(normalizedPosix)) {
+    return true;
+  }
+
+  // Block any paths inside essential OS system folders (e.g. /etc/..., /bin/..., /usr/..., /boot/..., /sys/...)
+  const systemPrefixes = ['/bin/', '/sbin/', '/usr/', '/etc/', '/lib/', '/lib64/', '/boot/', '/proc/', '/sys/', '/dev/', '/system/'];
+  for (const prefix of systemPrefixes) {
+    if (normalizedPosix.startsWith(prefix)) {
+      return true;
+    }
+  }
+
+  // 7. Windows system directories (SystemRoot, WINDIR, ProgramFiles, ProgramData)
+  const winDirsToCheck: string[] = [];
+  const winDir = process.env.WINDIR || process.env.SystemRoot || (process.platform === 'win32' ? 'C:\\Windows' : '');
+  if (winDir) {
+    winDirsToCheck.push(winDir);
+    winDirsToCheck.push(path.join(winDir, 'System32'));
+    winDirsToCheck.push(path.join(winDir, 'SysWOW64'));
+  }
+  if (process.env.ProgramFiles) winDirsToCheck.push(process.env.ProgramFiles);
+  if (process.env['ProgramFiles(x86)']) winDirsToCheck.push(process.env['ProgramFiles(x86)']);
+  if (process.env.ProgramData) winDirsToCheck.push(process.env.ProgramData);
+  if (process.env.CommonProgramFiles) winDirsToCheck.push(process.env.CommonProgramFiles);
+  if (process.env['CommonProgramFiles(x86)']) winDirsToCheck.push(process.env['CommonProgramFiles(x86)']);
+
+  for (const wd of winDirsToCheck) {
+    if (!wd) continue;
+    const wdNormalized = path.normalize(path.resolve(wd)).replace(/[\\/]+$/, '').toLowerCase();
+    if (normalized === wdNormalized || normalized.startsWith(wdNormalized + path.sep.toLowerCase())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function unregisterKnowledgeBase(
+  kbPath: string,
+  deleteFiles = false
+): { success: boolean; wasActive: boolean; error?: string } {
+  const normalizePath = (p: string) => {
+    const res = path.resolve(p);
+    return process.platform === 'win32' ? res.toLowerCase() : res;
+  };
   const resolved = path.resolve(kbPath);
+  const normalizedTarget = normalizePath(resolved);
   const globalConf = loadGlobalConfig();
-  const wasActive = globalConf.activeKnowledgeBase === resolved;
+  const wasActive = globalConf.activeKnowledgeBase
+    ? normalizePath(globalConf.activeKnowledgeBase) === normalizedTarget
+    : false;
+
+  const isRegistered =
+    (globalConf.knownKnowledgeBases || []).some((p) => normalizePath(p) === normalizedTarget) ||
+    wasActive;
+
+  if (deleteFiles) {
+    if (isCriticalSystemPath(resolved)) {
+      return {
+        success: false,
+        wasActive,
+        error: `Refused to delete files: '${resolved}' is a critical system or workspace path.`,
+      };
+    }
+
+    if (!isRegistered) {
+      return {
+        success: false,
+        wasActive,
+        error: `Refused to delete files: '${resolved}' is not registered in knownKnowledgeBases.`,
+      };
+    }
+
+    if (fs.existsSync(resolved)) {
+      try {
+        fs.rmSync(resolved, { recursive: true, force: true });
+      } catch (err: any) {
+        return {
+          success: false,
+          wasActive,
+          error: `Failed to delete files at '${resolved}': ${err.message}`,
+        };
+      }
+    }
+  }
 
   globalConf.knownKnowledgeBases = (globalConf.knownKnowledgeBases || []).filter(
-    (p) => path.resolve(p) !== resolved
+    (p) => normalizePath(p) !== normalizedTarget
   );
 
   if (wasActive) {
@@ -275,12 +461,6 @@ export function unregisterKnowledgeBase(kbPath: string, deleteFiles = false): { 
   }
 
   saveGlobalConfig(globalConf);
-
-  if (deleteFiles && fs.existsSync(resolved)) {
-    try {
-      fs.rmSync(resolved, { recursive: true, force: true });
-    } catch {}
-  }
 
   return { success: true, wasActive };
 }

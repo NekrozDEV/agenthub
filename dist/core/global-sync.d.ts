@@ -57,6 +57,10 @@ export declare class GlobalSyncManager {
      */
     syncAntigravity(): GlobalSyncTarget;
     /**
+     * Sync ZCode (z.ai) global MCP settings
+     */
+    syncZCode(): GlobalSyncTarget;
+    /**
      * Restores original IDE configuration files from .bak backups
      */
     restoreAllBackups(): {

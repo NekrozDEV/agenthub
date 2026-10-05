@@ -25,12 +25,21 @@ export declare class LeakGuard {
     scanContent(content: string, filePath: string): LeakFinding[];
     /**
      * Recursively scans directory while ignoring safe/binary/build folders
+     * @param dirPath Directory to scan (defaults to basePath)
+     * @param includeBackups If true, include *.bak backup files in scan (default: false)
      */
-    scanDirectory(dirPath?: string): LeakFinding[];
+    scanDirectory(dirPath?: string, includeBackups?: boolean): LeakFinding[];
+    static readonly ENV_BLACKLIST_EXTENSIONS: string[];
+    /**
+     * Validates whether a file is an authentic .env configuration file.
+     * Rejects structured and code files like deploy.env.yaml, production.env.backup, config.env.json
+     * while accepting true .env variants such as .env, .env.local, production.env, config.env.local.
+     */
+    static isEnvFile(filePath: string): boolean;
     static readonly SUPPORTED_EXTENSIONS: string[];
     /**
      * Checks if the file format is supported for safe automated secret redaction
-     * (.js, .ts, .jsx, .tsx, .mjs, .cjs, .py, .json, .env*)
+     * (.js, .ts, .jsx, .tsx, .mjs, .cjs, .py, .json, and verified .env files)
      */
     static isSupportedFile(filePath: string): boolean;
     /**

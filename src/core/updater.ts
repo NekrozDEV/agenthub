@@ -277,10 +277,10 @@ export async function performUpdate(lang: SupportedLanguage = 'en'): Promise<{ s
     }
   }
 
-  // Global npm install from GitHub archive: prioritize pinned release tag over main branch
+  // Global npm install from GitHub archive: prioritize pinned release tag over master branch
   const releaseTag = check.latestVersion.startsWith('v') ? check.latestVersion : `v${check.latestVersion}`;
   const taggedTarball = `https://github.com/${GITHUB_REPO}/archive/refs/tags/${releaseTag}.tar.gz`;
-  const mainTarball = `https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz`;
+  const masterTarball = `https://github.com/${GITHUB_REPO}/archive/refs/heads/master.tar.gz`;
   const isWindows = process.platform === 'win32';
   const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 
@@ -290,10 +290,10 @@ export async function performUpdate(lang: SupportedLanguage = 'en'): Promise<{ s
     shell: true,
   });
 
-  // If tag archive fails (e.g. tag not yet created on GitHub), fall back to main branch archive
+  // If tag archive fails (e.g. tag not yet created on GitHub), fall back to master branch archive
   if (res.status !== 0) {
-    console.log(chalk.yellow(`Release tag ${releaseTag} archive not found. Falling back to main branch...`));
-    res = spawnSync(npmCmd, ['install', '-g', '--force', mainTarball], {
+    console.log(chalk.yellow(`Release tag ${releaseTag} archive not found. Falling back to master branch...`));
+    res = spawnSync(npmCmd, ['install', '-g', '--force', masterTarball], {
       stdio: 'inherit',
       shell: true,
     });
