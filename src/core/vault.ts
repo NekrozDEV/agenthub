@@ -10,9 +10,11 @@ export interface SecretEntry {
 
 export class SecretVault {
   private vaultPath: string;
+  private knowledgeBasePath: string;
   private secrets: Map<string, string> = new Map();
 
   constructor(knowledgeBasePath: string) {
+    this.knowledgeBasePath = knowledgeBasePath;
     this.vaultPath = path.join(knowledgeBasePath, '.hub', 'vault.env');
     this.load();
   }
@@ -48,6 +50,8 @@ export class SecretVault {
    * Save secrets safely to .hub/vault.env with strict local file permissions
    */
   public save(): void {
+    SecretVault.ensureGitIgnored(this.knowledgeBasePath);
+
     const dir = path.dirname(this.vaultPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -68,6 +72,7 @@ export class SecretVault {
   }
 
   public setSecret(key: string, value: string): void {
+    SecretVault.ensureGitIgnored(this.knowledgeBasePath);
     this.secrets.set(key, value);
     this.save();
   }
@@ -96,7 +101,7 @@ export class SecretVault {
   }
 
   /**
-   * Check if gitignore in the knowledge base excludes the vault
+   * Check if gitignore in the knowledge base excludes the vault and safety backups
    */
   public static ensureGitIgnored(knowledgeBasePath: string): void {
     const gitignorePath = path.join(knowledgeBasePath, '.gitignore');
@@ -106,6 +111,7 @@ export class SecretVault {
       '.hub/*.key',
       '.hub/secrets/',
       '*.env.local',
+      '*.bak',
       'node_modules/',
     ];
 
@@ -115,16 +121,18 @@ export class SecretVault {
     }
 
     const existing = fs.readFileSync(gitignorePath, 'utf8');
+    const existingLines = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
     const toAdd: string[] = [];
 
     for (const entry of ignoreEntries) {
-      if (!existing.includes(entry) && !entry.startsWith('#')) {
+      if (!entry.startsWith('#') && !existingLines.has(entry)) {
         toAdd.push(entry);
       }
     }
 
     if (toAdd.length > 0) {
-      fs.appendFileSync(gitignorePath, '\n# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
+      const prefix = existing.endsWith('\n') || existing.length === 0 ? '' : '\n';
+      fs.appendFileSync(gitignorePath, prefix + '# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
     }
   }
 }

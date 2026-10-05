@@ -7,5 +7,6 @@
 *.env.local
 node_modules/
 *.log
+*.bak
 HANDOFF.md
 PROJECTS_MAP.md

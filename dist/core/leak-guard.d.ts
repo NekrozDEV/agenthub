@@ -27,6 +27,12 @@ export declare class LeakGuard {
      * Recursively scans directory while ignoring safe/binary/build folders
      */
     scanDirectory(dirPath?: string): LeakFinding[];
+    static readonly SUPPORTED_EXTENSIONS: string[];
+    /**
+     * Checks if the file format is supported for safe automated secret redaction
+     * (.js, .ts, .jsx, .tsx, .mjs, .cjs, .py, .json, .env*)
+     */
+    static isSupportedFile(filePath: string): boolean;
     /**
      * Sanitizes a file by safely replacing the leaked secret with an environment variable reference
      * Automatically creates a .bak backup before modifying any file.

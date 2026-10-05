@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.2] - 2026-10-05
+
+### Added
+- **Claude Monolith Terracotta Banner**: Brand new CLI banner design featuring Anthropic Claude terracotta palette (`#F08B6B`, `#D97757`, `#B85536`, `#5C2818`, `#3E180D`) with clear separation between AGENT and HUB.
+- **Interactive Menu Looping & Terminal UX**: Interactive menus in `agenthub` now remain active after actions, prompting to return to menu instead of terminating the process; added screen clearing before banner display.
+- **100% Russian Translations**: Complete Russian localization coverage for setup wizard, interactive menus, banners, and CLI messages.
+
+### Security & Hardening
+- **Backup File Git Isolation**: `*.bak` backup files containing pre-redaction credentials are now strictly added to `.gitignore` via `SecretVault.ensureGitIgnored()` to prevent accidental git staging.
+- **Automatic Git Protection**: `SecretVault.ensureGitIgnored()` is automatically invoked upon `save()` and `setSecret()`.
+- **File Extension Whitelist for Redaction**: `LeakGuard.redactSecretInFile()` and `agenthub audit --fix` now safely restrict string replacement to supported extensions (`.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`, `.py`, `.json`, `.env*`), issuing clear warnings for unsupported files (e.g., Go, Rust, Java) to prevent code syntax corruption.
+- **Secret Vault Deduplication**: `agenthub audit --fix` now deduplicates secret environment variable assignments across multiple occurrences of identical credentials.
+- **Dynamic MCP Server Version**: Replaced hardcoded version in MCP Server with dynamic runtime `getCurrentVersion()`.
+
+---
+
 ## [0.1.1] - 2026-10-05
 
 ### Added

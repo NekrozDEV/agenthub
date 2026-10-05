@@ -97,7 +97,7 @@ export const AGENT_INFO: Record<SupportedAgent, { name: string; description: str
 };
 
 export const DEFAULT_CONFIG: HubConfig = {
-  version: '0.1.0',
+  version: '0.1.2',
   language: 'en',
   knowledgeBasePath: '',
   enabledAgents: ['antigravity', 'deepseek-hermes', 'opencode'],

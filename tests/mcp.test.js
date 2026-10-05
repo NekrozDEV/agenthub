@@ -471,6 +471,93 @@ async function runMcpSuite() {
   }
   console.log('✓ redactSecretInFile creates .bak backup and strips quotes for valid process.env JS syntax');
 
+  // 11e. Test SecretVault.ensureGitIgnored includes *.bak and auto-triggers on save() & setSecret()
+  const { SecretVault } = await import('../dist/core/vault.js');
+  const tempVaultDir = path.join(testKbDir, 'temp_vault_test');
+  fs.mkdirSync(tempVaultDir, { recursive: true });
+  const testVault = new SecretVault(tempVaultDir);
+  testVault.setSecret('TEST_KEY', 'test_value');
+  const gitignoreContent = fs.readFileSync(path.join(tempVaultDir, '.gitignore'), 'utf8');
+  if (!gitignoreContent.includes('*.bak') || !gitignoreContent.includes('.hub/vault.env')) {
+    throw new Error(`ensureGitIgnored did not add *.bak or .hub/vault.env: ${gitignoreContent}`);
+  }
+  console.log('✓ SecretVault.ensureGitIgnored includes *.bak and is auto-called in setSecret() & save()');
+
+  // 11f. Test LeakGuard.isSupportedFile whitelist & safe handling of unsupported files
+  if (!LeakGuard.isSupportedFile('app.ts') || !LeakGuard.isSupportedFile('.env.production') || !LeakGuard.isSupportedFile('config.json') || !LeakGuard.isSupportedFile('script.py')) {
+    throw new Error('LeakGuard.isSupportedFile rejected valid supported extension');
+  }
+  if (LeakGuard.isSupportedFile('main.go') || LeakGuard.isSupportedFile('lib.rs') || LeakGuard.isSupportedFile('App.java')) {
+    throw new Error('LeakGuard.isSupportedFile accepted unsupported extension');
+  }
+  const unsupportedGoFile = path.join(testKbDir, 'server.go');
+  const goCode = 'package main\nvar apiKey = "sk-444444444444444444444444";\n';
+  fs.writeFileSync(unsupportedGoFile, goCode, 'utf8');
+  const goFindings = guardInstance.scanContent(goCode, unsupportedGoFile);
+  const goRedactResult = guardInstance.redactSecretInFile(goFindings[0], 'AUTO_SECRET_GO');
+  if (goRedactResult !== false) {
+    throw new Error('LeakGuard.redactSecretInFile should return false for unsupported file');
+  }
+  if (fs.existsSync(`${unsupportedGoFile}.bak`)) {
+    throw new Error('LeakGuard.redactSecretInFile should not create .bak for unsupported file');
+  }
+  if (fs.readFileSync(unsupportedGoFile, 'utf8') !== goCode) {
+    throw new Error('LeakGuard.redactSecretInFile modified an unsupported file!');
+  }
+  console.log('✓ LeakGuard strictly protects unsupported code files (Go, Rust, Java) from syntax corruption');
+
+  // 11g. Test agenthub audit --fix secret deduplication across multiple files
+  const dupFile1 = path.join(testKbDir, 'file1.js');
+  const dupFile2 = path.join(testKbDir, 'file2.js');
+  const identicalSecret = 'sk-555555555555555555555555';
+  fs.writeFileSync(dupFile1, `const token1 = "${identicalSecret}";\n`, 'utf8');
+  fs.writeFileSync(dupFile2, `const token2 = "${identicalSecret}";\n`, 'utf8');
+  execSync(`node "${mainBinPath}" audit --fix --kb "${testKbDir}"`, { encoding: 'utf8' });
+  const auditVault = new SecretVault(testKbDir);
+  const vaultKeys = auditVault.listKeys();
+  const matchingKeys = vaultKeys.filter(k => auditVault.getSecret(k) === identicalSecret);
+  if (matchingKeys.length !== 1) {
+    throw new Error(`Expected exactly 1 deduplicated vault key for identical secret, found ${matchingKeys.length}: ${JSON.stringify(matchingKeys)}`);
+  }
+  const code1 = fs.readFileSync(dupFile1, 'utf8');
+  const code2 = fs.readFileSync(dupFile2, 'utf8');
+  if (!code1.includes(matchingKeys[0]) || !code2.includes(matchingKeys[0])) {
+    throw new Error(`Both files did not receive deduplicated key ${matchingKeys[0]}`);
+  }
+  console.log(`✓ agenthub audit --fix successfully deduplicated secret under single key: ${matchingKeys[0]}`);
+
+  // 11h. Test LeakGuard.scanDirectory() strictly skips *.bak backup files
+  const allDirFindings = guardInstance.scanDirectory(testKbDir);
+  const bakFindings = allDirFindings.filter(f => f.filePath.endsWith('.bak'));
+  if (bakFindings.length > 0) {
+    throw new Error(`LeakGuard.scanDirectory() scanned .bak backup files as leaks: ${JSON.stringify(bakFindings)}`);
+  }
+  console.log('✓ LeakGuard.scanDirectory strictly ignores *.bak backup files to avoid false positive audits');
+
+  // 11i. Test redactSecretInFile preserves pristine original .bak across multiple secrets in same file
+  const multiSecretFile = path.join(testKbDir, 'multi_sec.js');
+  const pristineCode = 'const secA = "sk-666666666666666666666666";\nconst secB = \'sk-777777777777777777777777\';\n';
+  fs.writeFileSync(multiSecretFile, pristineCode, 'utf8');
+  const multiFindings = guardInstance.scanContent(pristineCode, multiSecretFile);
+  if (multiFindings.length !== 2) throw new Error(`Expected 2 findings in multi_sec.js, got ${multiFindings.length}`);
+  guardInstance.redactSecretInFile(multiFindings[0], 'AUTO_SECRET_A');
+  guardInstance.redactSecretInFile(multiFindings[1], 'AUTO_SECRET_B');
+  const backupCode = fs.readFileSync(`${multiSecretFile}.bak`, 'utf8');
+  if (backupCode !== pristineCode) {
+    throw new Error(`.bak backup was corrupted or overwritten on second redaction pass: ${backupCode}`);
+  }
+  const finalMultiCode = fs.readFileSync(multiSecretFile, 'utf8');
+  if (finalMultiCode.includes('sk-6666') || finalMultiCode.includes('sk-7777')) {
+    throw new Error(`Failed to redact both mixed-quote secrets in multi_sec.js: ${finalMultiCode}`);
+  }
+  console.log('✓ redactSecretInFile preserves pristine .bak backup and cleanly redacts mixed quoting styles');
+
+  // 11j. Test isSupportedFile with .env variants
+  if (!LeakGuard.isSupportedFile('config.env.local') || !LeakGuard.isSupportedFile('production.env') || !LeakGuard.isSupportedFile('.env.staging')) {
+    throw new Error('LeakGuard.isSupportedFile failed on valid .env variants');
+  }
+  console.log('✓ LeakGuard.isSupportedFile correctly recognizes all .env file variants');
+
   // 12. List resources
   const resourcesListRes = await send({
     jsonrpc: '2.0',

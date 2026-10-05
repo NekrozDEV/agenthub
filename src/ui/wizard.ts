@@ -22,6 +22,7 @@ import { DEFAULT_SKILLS } from '../templates/default-skills.js';
 import { DEFAULT_MCPS } from '../templates/default-mcps.js';
 import { syncAdapters } from '../adapters/index.js';
 import { printBanner } from './banner.js';
+import { getCurrentVersion } from '../core/updater.js';
 
 interface WizardStrings {
   title: string;
@@ -113,7 +114,7 @@ const I18N: Record<SupportedLanguage, WizardStrings> = {
     spinnerDone: '✓ База Знаний успешно сконфигурирована!',
     leakWarning: (count) =>
       `Внимание! Обнаружено ${count} потенциальных секретов в файлах базы знаний!\nЗапустите 'agenthub audit' для безопасного переноса их в Сейф.`,
-    leakTitle: '🛡️ Secret Inspector & Leak Guard',
+    leakTitle: '🛡️ Инспектор Секретов (Leak Guard)',
     summaryTitle: '📋 Итоги настройки',
     summaryFolder: 'Папка базы знаний',
     summaryAgents: 'Активные AI-системы',
@@ -142,13 +143,13 @@ const I18N: Record<SupportedLanguage, WizardStrings> = {
 };
 
 export async function runInitWizard(initialTargetDir?: string): Promise<void> {
-  printBanner();
-
-  // 0. Language selection
   const defaultDir = initialTargetDir || process.cwd();
   const existingConfig = loadConfig(defaultDir);
   const initialLang: SupportedLanguage = existingConfig?.language || getPreferredLanguage(defaultDir);
 
+  printBanner({ clear: true, lang: initialLang });
+
+  // 0. Language selection
   const langChoice = await p.select({
     message: 'Select language / Выберите язык:',
     options: [
@@ -160,13 +161,13 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   if (p.isCancel(langChoice)) {
     p.cancel('Setup cancelled / Настройка отменена.');
-    process.exit(0);
+    return;
   }
 
   const lang: SupportedLanguage = langChoice as SupportedLanguage;
   const t = I18N[lang];
 
-  p.intro(chalk.bgHex('#FF6600').black.bold(t.title));
+  p.intro(chalk.bgHex('#D97757').black.bold(t.title));
 
   // 1. Choose Knowledge Base Folder
   const folderInput = await p.text({
@@ -179,7 +180,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   if (p.isCancel(folderInput)) {
     p.cancel(t.cancelMessage);
-    process.exit(0);
+    return;
   }
 
   const kbPath = path.resolve(folderInput as string);
@@ -208,14 +209,37 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   if (p.isCancel(selectedAgents)) {
     p.cancel(t.cancelMessage);
-    process.exit(0);
+    return;
   }
 
   // 3. Optional Starter Skills Catalog
+  const skillHintsRu: Record<string, { label: string; hint: string }> = {
+    'agenthub-guide': {
+      label: 'AgentHub Universal Guide (Мета-скил)',
+      hint: 'Основное руководство: обнаружение скилов, экономия токенов, безопасность и передача задач',
+    },
+    'frontend-design': {
+      label: 'Modern Frontend Design & UI Excellence',
+      hint: 'Создание красивых, отзывчивых интерфейсов с чистой типографикой и Tailwind CSS',
+    },
+    'cybersecurity-guidelines': {
+      label: 'Cybersecurity & Vulnerability Prevention',
+      hint: 'Защита по OWASP Top 10, санитизация данных, изоляция секретов и безопасная авторизация',
+    },
+    'git-workflow': {
+      label: 'Conventional Git Workflow & Team Collaboration',
+      hint: 'Чистая история коммитов, ветвление, семантические сообщения и командная работа',
+    },
+    'code-review': {
+      label: 'Rigorous Code Review & Clean Architecture',
+      hint: 'Глубокий анализ кода, выявление скрытых багов, проверка типизации и архитектуры',
+    },
+  };
+
   const skillOptions = DEFAULT_SKILLS.map((s) => ({
     value: s.id,
-    label: s.title,
-    hint: s.description,
+    label: lang === 'ru' && skillHintsRu[s.id] ? skillHintsRu[s.id].label : s.title,
+    hint: lang === 'ru' && skillHintsRu[s.id] ? skillHintsRu[s.id].hint : s.description,
   }));
 
   const selectedSkillIds = (await p.multiselect({
@@ -227,14 +251,33 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   if (p.isCancel(selectedSkillIds)) {
     p.cancel(t.cancelMessage);
-    process.exit(0);
+    return;
   }
 
   // 4. Optional Starter MCP Catalog
+  const mcpHintsRu: Record<string, { name: string; description: string }> = {
+    github: {
+      name: 'GitHub Интеграция',
+      description: 'Управление репозиториями, пулл-реквестами, задачами и коммитами через MCP',
+    },
+    telegram: {
+      name: 'Telegram Бот',
+      description: 'Отправка сообщений, алертов и команд боту в реальном времени',
+    },
+    cloudflare: {
+      name: 'Cloudflare Workers & DNS',
+      description: 'Управление бессерверными воркерами, DNS и Edge-инфраструктурой',
+    },
+    filesystem: {
+      name: 'Локальная Файловая Система',
+      description: 'Безопасное чтение и запись локальных файлов и директорий проекта',
+    },
+  };
+
   const mcpOptions = Object.values(DEFAULT_MCPS).map((m) => ({
     value: m.id,
-    label: m.name,
-    hint: m.description,
+    label: lang === 'ru' && mcpHintsRu[m.id] ? mcpHintsRu[m.id].name : m.name,
+    hint: lang === 'ru' && mcpHintsRu[m.id] ? mcpHintsRu[m.id].description : m.description,
   }));
 
   const selectedMcpIds = (await p.multiselect({
@@ -246,7 +289,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   if (p.isCancel(selectedMcpIds)) {
     p.cancel(t.cancelMessage);
-    process.exit(0);
+    return;
   }
 
   // 5. Ask for Global IDE / MCP Registration
@@ -257,7 +300,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   if (p.isCancel(enableGlobalSync)) {
     p.cancel(t.cancelMessage);
-    process.exit(0);
+    return;
   }
 
   const s = p.spinner();
@@ -310,7 +353,7 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
 
   // Save Config & register as active KB globally
   const config: HubConfig = {
-    version: '0.1.0',
+    version: getCurrentVersion(),
     language: lang,
     knowledgeBasePath: kbPath,
     enabledAgents: selectedAgents as SupportedAgent[],
@@ -354,21 +397,21 @@ export async function runInitWizard(initialTargetDir?: string): Promise<void> {
   }
 
   const orangeText = chalk.hex('#FFA500');
-  const orangeBullet = chalk.hex('#FF6600').bold;
+  const orangeBullet = chalk.hex('#D97757').bold;
   p.note(
     orangeText(
       `${orangeBullet('•')} ${t.summaryFolder}: ${chalk.white.bold(kbPath)}\n` +
       `${orangeBullet('•')} ${t.summaryAgents}: ${chalk.white(synced.join(', '))}\n` +
       `${orangeBullet('•')} ${t.summarySkillsCount(installedSkills.length)}: ${chalk.gray(installedSkills.join(', '))}\n` +
-      `${orangeBullet('•')} ${t.summaryMcpsCount(installedMcps.length)}: ${chalk.gray(installedMcps.join(', ') || 'none')}\n` +
+      `${orangeBullet('•')} ${t.summaryMcpsCount(installedMcps.length)}: ${chalk.gray(installedMcps.join(', ') || (lang === 'ru' ? 'нет' : 'none'))}\n` +
       (globalSyncSummary.length > 0
         ? `${orangeBullet('•')} ${t.summaryGlobalSync}: ${chalk.white(globalSyncSummary.join(', '))}\n`
         : '') +
       `${orangeBullet('•')} ${t.summaryVault}: ${chalk.white(getVaultPath(kbPath))}\n` +
       `${orangeBullet('•')} ${t.summaryRepoMap}`
     ),
-    chalk.hex('#FF6600').bold(t.summaryTitle)
+    chalk.hex('#D97757').bold(t.summaryTitle)
   );
 
-  p.outro(chalk.bold.hex('#FF7700')('🔥 ' + t.outroSuccess));
+  p.outro(chalk.bold.hex('#F08B6B')('🔥 ' + t.outroSuccess));
 }

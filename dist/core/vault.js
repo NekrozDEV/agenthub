@@ -2,8 +2,10 @@ import fs from 'fs';
 import path from 'path';
 export class SecretVault {
     vaultPath;
+    knowledgeBasePath;
     secrets = new Map();
     constructor(knowledgeBasePath) {
+        this.knowledgeBasePath = knowledgeBasePath;
         this.vaultPath = path.join(knowledgeBasePath, '.hub', 'vault.env');
         this.load();
     }
@@ -37,6 +39,7 @@ export class SecretVault {
      * Save secrets safely to .hub/vault.env with strict local file permissions
      */
     save() {
+        SecretVault.ensureGitIgnored(this.knowledgeBasePath);
         const dir = path.dirname(this.vaultPath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -53,6 +56,7 @@ export class SecretVault {
         fs.writeFileSync(this.vaultPath, lines.join('\n') + '\n', { mode: 0o600 });
     }
     setSecret(key, value) {
+        SecretVault.ensureGitIgnored(this.knowledgeBasePath);
         this.secrets.set(key, value);
         this.save();
     }
@@ -76,7 +80,7 @@ export class SecretVault {
         return Array.from(this.secrets.keys());
     }
     /**
-     * Check if gitignore in the knowledge base excludes the vault
+     * Check if gitignore in the knowledge base excludes the vault and safety backups
      */
     static ensureGitIgnored(knowledgeBasePath) {
         const gitignorePath = path.join(knowledgeBasePath, '.gitignore');
@@ -86,6 +90,7 @@ export class SecretVault {
             '.hub/*.key',
             '.hub/secrets/',
             '*.env.local',
+            '*.bak',
             'node_modules/',
         ];
         if (!fs.existsSync(gitignorePath)) {
@@ -93,14 +98,16 @@ export class SecretVault {
             return;
         }
         const existing = fs.readFileSync(gitignorePath, 'utf8');
+        const existingLines = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
         const toAdd = [];
         for (const entry of ignoreEntries) {
-            if (!existing.includes(entry) && !entry.startsWith('#')) {
+            if (!entry.startsWith('#') && !existingLines.has(entry)) {
                 toAdd.push(entry);
             }
         }
         if (toAdd.length > 0) {
-            fs.appendFileSync(gitignorePath, '\n# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
+            const prefix = existing.endsWith('\n') || existing.length === 0 ? '' : '\n';
+            fs.appendFileSync(gitignorePath, prefix + '# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
         }
     }
 }

@@ -1,34 +1,69 @@
 import chalk from 'chalk';
+import { getPreferredLanguage, SupportedLanguage } from '../core/config.js';
 
-export function printBanner(): void {
-  const o1 = chalk.hex('#FF4500'); // Deep Orange / Red-Orange
-  const o2 = chalk.hex('#FF6600'); // Pure Vibrant Orange
-  const o3 = chalk.hex('#FF8800'); // Bright Orange
-  const o4 = chalk.hex('#FFA500'); // Amber Orange
-  const o5 = chalk.hex('#FFBF00'); // Warm Gold / Amber
+export function printBanner(options?: { clear?: boolean; lang?: SupportedLanguage }): void {
+  if (options?.clear ?? true) {
+    try {
+      console.clear();
+    } catch {}
+  }
 
-  const logoLines = [
-    o1('   █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗  ██╗██╗   ██╗██████╗ '),
-    o2('  ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║  ██║██║   ██║██╔══██╗'),
-    o3('  ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ███████║██║   ██║██████╔╝'),
-    o4('  ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██╔══██║██║   ██║██╔══██╗'),
-    o5('  ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║  ██║╚██████╔╝██████╔╝'),
-    o5('  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ '),
+  const lang = options?.lang || getPreferredLanguage();
+
+  // Anthropic Claude terracotta palette & 3D shadow
+  const claudeLight = chalk.hex('#F08B6B'); // Top warm highlight (Row 0)
+  const claudeMain = chalk.hex('#D97757'); // Main Claude terracotta (Rows 1-2)
+  const claudeWarm = chalk.hex('#B85536'); // Lower edge terracotta (Rows 3-4)
+  const claudeShadow = chalk.hex('#5C2818'); // Right shadow (dark terracotta)
+  const claudeDark = chalk.hex('#3E180D'); // Deep base shadow (Row 5)
+
+  // Variant 1: Claude Monolith with extra space gap between AGENT and HUB
+  const v1_lines = [
+    '  █████▌   ██████▌  ███████▌  ███   ██▌  ████████▌     ██   ██▌  ██   ██▌  ██████▌ ',
+    ' ██   ██▌  ██▌       ██▌      ████  ██▌     ██▌        ██   ██▌  ██   ██▌  ██   ██▌',
+    ' ███████▌  ██   ███▌ █████▌   ██ ██ ██▌     ██▌        ███████▌  ██   ██▌  ██████▌ ',
+    ' ██   ██▌  ██    ██▌ ██▌      ██  ████▌     ██▌        ██   ██▌  ██   ██▌  ██   ██▌',
+    ' ██   ██▌   ██████▌  ███████▌ ██   ███▌     ██▌        ██   ██▌   █████▌   ██████▌ ',
+    ' ▀▀▘  ▀▀▘   ▀▀▀▀▀▀▘  ▀▀▀▀▀▀▀▘ ▀▀▘  ▀▀▀▘     ▀▀▘        ▀▀▘  ▀▀▘   ▀▀▀▀▀▘   ▀▀▀▀▀▀▘ ',
   ];
 
-  console.log('\n' + logoLines.join('\n'));
+  const renderedLines = v1_lines.map((line, r) => {
+    let out = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '▌' || ch === '▘') {
+        out += claudeShadow(ch);
+      } else if (r === 5) {
+        out += claudeDark(ch);
+      } else if (ch === ' ') {
+        out += ' ';
+      } else {
+        const col = (r === 0 ? claudeLight : r <= 2 ? claudeMain : claudeWarm);
+        out += col(ch);
+      }
+    }
+    return out;
+  });
+
+  console.log('\n' + renderedLines.join('\n'));
+
+  const tagVault = lang === 'ru' ? 'Сейф Zero-Leak' : 'Zero-Leak Vault';
+  const tagMcp = 'Multi-IDE MCP';
+  const tagMemory = lang === 'ru' ? 'Память Агентов' : 'Cross-Agent Memory';
+  const tagContext = lang === 'ru' ? 'Экономия Контекста' : 'Smart Context Saver';
+
   console.log(
-    o3('  ⚡ ') +
-    chalk.white.bold('Zero-Leak Vault') +
-    chalk.gray(' • ') +
-    o4('⚡ ') +
-    chalk.white.bold('Multi-IDE MCP') +
-    chalk.gray(' • ') +
-    o5('⚡ ') +
-    chalk.white.bold('Cross-Agent Memory') +
-    chalk.gray(' • ') +
-    o2('⚡ ') +
-    chalk.white.bold('Smart Context Saver') +
+    claudeLight('  ⚡ ') +
+    chalk.white.bold(tagVault) +
+    chalk.gray('  •  ') +
+    claudeMain('⚡ ') +
+    chalk.white.bold(tagMcp) +
+    chalk.gray('  •  ') +
+    claudeWarm('⚡ ') +
+    chalk.white.bold(tagMemory) +
+    chalk.gray('  •  ') +
+    claudeMain('⚡ ') +
+    chalk.white.bold(tagContext) +
     '\n'
   );
 }

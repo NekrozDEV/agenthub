@@ -112,11 +112,17 @@ export function buildCli(customLang) {
         }
         console.log(orange(lang === 'ru' ? `Зарегистрированные Базы Знаний (${kbs.length}):` : `Registered Knowledge Bases (${kbs.length}):`));
         for (const kb of kbs) {
-            const active = kb.isActive ? chalk.green(' [ACTIVE] ') : '          ';
-            const mark = kb.exists ? chalk.green('✓') : chalk.red('✕ (Missing)');
+            const active = kb.isActive
+                ? chalk.green(lang === 'ru' ? ' [АКТИВНА] ' : ' [ACTIVE] ')
+                : '          ';
+            const mark = kb.exists ? chalk.green('✓') : chalk.red(lang === 'ru' ? '✕ (Не найдена)' : '✕ (Missing)');
             console.log(`  ${mark} ${active} ${chalk.bold(kb.name)} - ${chalk.gray(kb.path)}`);
             if (kb.exists) {
-                console.log(`     ${chalk.gray(`Skills: ${kb.skillsCount} | MCPs: ${kb.mcpsCount} | Agents: ${kb.enabledAgents.join(', ') || 'none'}`)}`);
+                const skillsLabel = lang === 'ru' ? 'Скилы' : 'Skills';
+                const mcpsLabel = lang === 'ru' ? 'MCP' : 'MCPs';
+                const agentsLabel = lang === 'ru' ? 'Агенты' : 'Agents';
+                const noneLabel = lang === 'ru' ? 'нет' : 'none';
+                console.log(`     ${chalk.gray(`${skillsLabel}: ${kb.skillsCount} | ${mcpsLabel}: ${kb.mcpsCount} | ${agentsLabel}: ${kb.enabledAgents.join(', ') || noneLabel}`)}`);
             }
         }
     });
@@ -258,15 +264,43 @@ export function buildCli(customLang) {
         }
         console.log(chalk.yellow(t.auditFindings(findings.length)));
         const vault = new SecretVault(kbPath);
+        const envKeyBySecret = new Map();
         for (const f of findings) {
             console.log(`${chalk.red(`[${f.type}]`)} ${chalk.bold(f.relativePath)}:${f.line}` +
                 `\n  ${t.auditValLabel} ${chalk.red(f.maskedSecret)}` +
                 `\n  ${t.auditLineLabel} ${chalk.gray(f.snippet)}`);
             if (options.fix) {
-                const envKey = `AUTO_SECRET_${f.type.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${Date.now().toString().slice(-4)}`;
-                vault.setSecret(envKey, f.matchedSecret);
-                leakGuard.redactSecretInFile(f, envKey);
-                console.log(chalk.green(t.auditFixed(envKey)));
+                if (!LeakGuard.isSupportedFile(f.filePath)) {
+                    const warnMsg = lang === 'ru'
+                        ? `  ⚠️ Неподдерживаемый формат (${path.extname(f.filePath) || path.basename(f.filePath)}): ${f.relativePath}:${f.line} — выполните ротацию секрета вручную.`
+                        : `  ⚠️ Unsupported file format (${path.extname(f.filePath) || path.basename(f.filePath)}): ${f.relativePath}:${f.line} — please rotate secret manually.`;
+                    console.log(chalk.yellow(warnMsg));
+                    continue;
+                }
+                let envKey = envKeyBySecret.get(f.matchedSecret);
+                if (!envKey) {
+                    for (const existingKey of vault.listKeys()) {
+                        if (vault.getSecret(existingKey) === f.matchedSecret) {
+                            envKey = existingKey;
+                            break;
+                        }
+                    }
+                }
+                if (!envKey) {
+                    let keySuffix = (envKeyBySecret.size + 1).toString().padStart(2, '0');
+                    envKey = `AUTO_SECRET_${f.type.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${keySuffix}`;
+                    let counter = envKeyBySecret.size + 1;
+                    while (vault.hasSecret(envKey)) {
+                        counter++;
+                        envKey = `AUTO_SECRET_${f.type.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${counter.toString().padStart(2, '0')}`;
+                    }
+                    vault.setSecret(envKey, f.matchedSecret);
+                }
+                envKeyBySecret.set(f.matchedSecret, envKey);
+                const redacted = leakGuard.redactSecretInFile(f, envKey);
+                if (redacted) {
+                    console.log(chalk.green(t.auditFixed(envKey)));
+                }
             }
         }
         if (!options.fix) {
@@ -359,7 +393,8 @@ export function buildCli(customLang) {
         }
         console.log(orange(t.vaultListHeader(keys.length)));
         for (const k of keys) {
-            console.log(`  • ${chalk.bold(k)}: [PROTECTED / ZERO-LEAK]`);
+            const protLabel = lang === 'ru' ? '[ЗАЩИЩЕНО / ZERO-LEAK]' : '[PROTECTED / ZERO-LEAK]';
+            console.log(`  • ${chalk.bold(k)}: ${protLabel}`);
         }
     });
     // Team Sync Command (Feature 6)

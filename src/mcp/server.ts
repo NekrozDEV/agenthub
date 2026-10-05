@@ -17,6 +17,7 @@ import { LeakGuard } from '../core/leak-guard.js';
 import { RepoMapGenerator } from '../core/repomap.js';
 import { HandoffManager, HandoffCheckpoint } from '../core/handoff.js';
 import { resolveKnowledgeBasePath } from '../core/config.js';
+import { getCurrentVersion } from '../core/updater.js';
 
 export class AgentHubMcpServer {
   private server: Server;
@@ -36,7 +37,7 @@ export class AgentHubMcpServer {
     this.server = new Server(
       {
         name: 'open-agenthub',
-        version: '0.1.0',
+        version: getCurrentVersion(),
       },
       {
         capabilities: {

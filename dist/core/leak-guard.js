@@ -110,10 +110,13 @@ export class LeakGuard {
                     }
                 }
                 else if (entry.isFile()) {
-                    // Skip large binary files, images, etc.
+                    // Skip large binary files, images, archives, and backup/temp files
                     const ext = path.extname(entry.name).toLowerCase();
-                    const skipExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.exe', '.dll', '.bin', '.pdf']);
-                    if (skipExts.has(ext))
+                    const skipExts = new Set([
+                        '.png', '.jpg', '.jpeg', '.gif', '.zip', '.tar', '.gz',
+                        '.exe', '.dll', '.bin', '.pdf', '.bak', '.tmp', '.swp',
+                    ]);
+                    if (skipExts.has(ext) || entry.name.endsWith('.bak'))
                         continue;
                     try {
                         const stats = fs.statSync(fullPath);
@@ -131,6 +134,31 @@ export class LeakGuard {
         walk(dirPath);
         return findings;
     }
+    static SUPPORTED_EXTENSIONS = [
+        '.js',
+        '.ts',
+        '.jsx',
+        '.tsx',
+        '.mjs',
+        '.cjs',
+        '.py',
+        '.json',
+    ];
+    /**
+     * Checks if the file format is supported for safe automated secret redaction
+     * (.js, .ts, .jsx, .tsx, .mjs, .cjs, .py, .json, .env*)
+     */
+    static isSupportedFile(filePath) {
+        const ext = path.extname(filePath).toLowerCase();
+        const base = path.basename(filePath).toLowerCase();
+        if (base.startsWith('.env') ||
+            ext.startsWith('.env') ||
+            base.endsWith('.env') ||
+            base.includes('.env.')) {
+            return true;
+        }
+        return LeakGuard.SUPPORTED_EXTENSIONS.includes(ext);
+    }
     /**
      * Sanitizes a file by safely replacing the leaked secret with an environment variable reference
      * Automatically creates a .bak backup before modifying any file.
@@ -140,17 +168,29 @@ export class LeakGuard {
         try {
             if (!fs.existsSync(finding.filePath))
                 return false;
-            // 1. Create a safety backup (.bak)
+            // Whitelist check: prevent corrupting syntax in unsupported languages (Go, Java, Rust, etc.)
+            if (!LeakGuard.isSupportedFile(finding.filePath)) {
+                console.warn(`⚠️ Unsupported file type for auto-redaction: ${finding.relativePath || finding.filePath}:${finding.line}. Please rotate this secret manually.`);
+                return false;
+            }
+            // 1. Create a safety backup (.bak) only if not already present to preserve pristine pre-redaction content
             try {
-                fs.copyFileSync(finding.filePath, `${finding.filePath}.bak`);
+                const bakPath = `${finding.filePath}.bak`;
+                if (!fs.existsSync(bakPath)) {
+                    fs.copyFileSync(finding.filePath, bakPath);
+                }
             }
             catch { }
             const content = fs.readFileSync(finding.filePath, 'utf8');
             const ext = path.extname(finding.filePath).toLowerCase();
+            const base = path.basename(finding.filePath).toLowerCase();
             const isJsTs = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'].includes(ext);
             const isPython = ext === '.py';
             const isJson = ext === '.json';
-            const isEnv = path.basename(finding.filePath).startsWith('.env');
+            const isEnv = base.startsWith('.env') ||
+                ext.startsWith('.env') ||
+                base.endsWith('.env') ||
+                base.includes('.env.');
             let replacement;
             if (isJsTs) {
                 replacement = `process.env.${envVarName} || ""`;
@@ -162,28 +202,30 @@ export class LeakGuard {
                 replacement = `\${${envVarName}}`;
             }
             else {
-                replacement = `process.env.${envVarName} || ""`;
+                return false;
             }
             // Check if secret is surrounded by quotes: "secret", 'secret', `secret`
             const doubleQuoted = `"${finding.matchedSecret}"`;
             const singleQuoted = `'${finding.matchedSecret}'`;
             const backtickQuoted = `\`${finding.matchedSecret}\``;
             let updated = content;
-            if (isJson) {
-                // JSON requires string values
-                updated = updated.replaceAll(finding.matchedSecret, `\${${envVarName}}`);
-            }
-            else if (updated.includes(doubleQuoted)) {
-                updated = updated.replaceAll(doubleQuoted, replacement);
-            }
-            else if (updated.includes(singleQuoted)) {
-                updated = updated.replaceAll(singleQuoted, replacement);
-            }
-            else if (updated.includes(backtickQuoted)) {
-                updated = updated.replaceAll(backtickQuoted, replacement);
+            if (isJson || isEnv) {
+                updated = updated.replaceAll(finding.matchedSecret, replacement);
             }
             else {
-                updated = updated.replaceAll(finding.matchedSecret, replacement);
+                // Redact across all quoting styles so no secret occurrence is missed
+                if (updated.includes(doubleQuoted)) {
+                    updated = updated.replaceAll(doubleQuoted, replacement);
+                }
+                if (updated.includes(singleQuoted)) {
+                    updated = updated.replaceAll(singleQuoted, replacement);
+                }
+                if (updated.includes(backtickQuoted)) {
+                    updated = updated.replaceAll(backtickQuoted, replacement);
+                }
+                if (updated.includes(finding.matchedSecret)) {
+                    updated = updated.replaceAll(finding.matchedSecret, replacement);
+                }
             }
             fs.writeFileSync(finding.filePath, updated, 'utf8');
             return true;

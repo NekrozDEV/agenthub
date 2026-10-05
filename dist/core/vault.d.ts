@@ -6,6 +6,7 @@ export interface SecretEntry {
 }
 export declare class SecretVault {
     private vaultPath;
+    private knowledgeBasePath;
     private secrets;
     constructor(knowledgeBasePath: string);
     /**
@@ -25,7 +26,7 @@ export declare class SecretVault {
      */
     listKeys(): string[];
     /**
-     * Check if gitignore in the knowledge base excludes the vault
+     * Check if gitignore in the knowledge base excludes the vault and safety backups
      */
     static ensureGitIgnored(knowledgeBasePath: string): void;
 }

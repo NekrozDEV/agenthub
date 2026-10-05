@@ -60,7 +60,7 @@ export const AGENT_INFO = {
     },
 };
 export const DEFAULT_CONFIG = {
-    version: '0.1.0',
+    version: '0.1.2',
     language: 'en',
     knowledgeBasePath: '',
     enabledAgents: ['antigravity', 'deepseek-hermes', 'opencode'],
