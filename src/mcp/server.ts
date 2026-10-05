@@ -460,9 +460,41 @@ export class AgentHubMcpServer {
             };
           }
 
-          const targetDir = args?.directory
-            ? path.resolve(this.knowledgeBasePath, String(args.directory))
-            : path.join(this.knowledgeBasePath, 'projects');
+          const kbRoot = path.resolve(this.knowledgeBasePath);
+          let targetDir: string;
+          if (args?.directory) {
+            const requested = path.resolve(kbRoot, String(args.directory));
+            const rel = path.relative(kbRoot, requested);
+            if (rel.startsWith('..') || path.isAbsolute(rel)) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                `Security violation: Directory path '${args.directory}' attempts directory traversal outside Knowledge Base (${kbRoot})`
+              );
+            }
+            targetDir = requested;
+          } else {
+            targetDir = path.join(kbRoot, 'projects');
+          }
+
+          if (!fs.existsSync(targetDir)) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(
+                    {
+                      scannedPath: path.relative(kbRoot, targetDir) || '.',
+                      leaksDetected: 0,
+                      findings: [],
+                      message: `Directory does not exist: ${path.relative(kbRoot, targetDir)}`,
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
+            };
+          }
 
           const findings = this.leakGuard.scanDirectory(targetDir);
           return {
@@ -471,10 +503,10 @@ export class AgentHubMcpServer {
                 type: 'text',
                 text: JSON.stringify(
                   {
-                    scannedPath: targetDir,
+                    scannedPath: path.relative(kbRoot, targetDir) || '.',
                     leaksDetected: findings.length,
                     findings: findings.map((f) => ({
-                      file: f.relativePath,
+                      file: path.relative(kbRoot, f.filePath),
                       type: f.type,
                       line: f.line,
                       masked: f.maskedSecret,

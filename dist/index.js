@@ -15,7 +15,7 @@ import { syncAdapters } from './adapters/index.js';
 import { DEFAULT_SKILLS } from './templates/default-skills.js';
 import { startAgentHubMcpServer } from './mcp/server.js';
 import { CLI_I18N } from './core/i18n.js';
-import { checkForUpdates, renderUpdateNotice, performUpdate, setAutoUpdateSetting, getCurrentVersion, } from './core/updater.js';
+import { checkForUpdates, renderUpdateNotice, performUpdate, setAutoUpdateSetting, getAutoUpdateSetting, getCurrentVersion, } from './core/updater.js';
 export function buildCli(customLang) {
     const lang = customLang || getPreferredLanguage();
     const t = CLI_I18N[lang];
@@ -26,9 +26,11 @@ export function buildCli(customLang) {
         .description(t.programDesc)
         .version(getCurrentVersion())
         .option('--lang <language>', t.langOptionDesc);
-    // Hook for non-blocking update notifications (skip on stdio MCP server)
+    // Hook for non-blocking update notifications (skip on stdio MCP server or when autoUpdate is off)
     program.hook('postAction', async (_thisCmd, actionCmd) => {
         if (actionCmd?.name() === 'serve-mcp')
+            return;
+        if (getAutoUpdateSetting() === 'off')
             return;
         try {
             const update = await checkForUpdates();
@@ -158,11 +160,30 @@ export function buildCli(customLang) {
         .description(t.globalDesc)
         .option('-a, --all', t.globalAllOpt)
         .option('--kb <path>', t.globalKbOpt)
+        .option('--restore', lang === 'ru' ? 'Восстановить конфигурации IDE из резервных копий (.bak)' : 'Restore IDE configs from backups (.bak)')
         .action((opts) => {
         const kbPath = resolveKnowledgeBasePath(opts.kb);
+        const globalSync = new GlobalSyncManager(kbPath);
+        if (opts.restore) {
+            console.log(orange(lang === 'ru' ? '🔄 Восстановление резервных копий IDE...' : '🔄 Restoring IDE configurations from backups...'));
+            const { restored, notFound } = globalSync.restoreAllBackups();
+            if (restored.length === 0) {
+                console.log(chalk.gray(lang === 'ru' ? 'Резервные копии (.bak) не найдены.' : 'No backup files (.bak) found.'));
+            }
+            else {
+                for (const f of restored) {
+                    console.log(chalk.green(`  ✓ ${lang === 'ru' ? 'Восстановлен' : 'Restored'}: ${f}`));
+                }
+            }
+            if (notFound.length > 0) {
+                for (const err of notFound) {
+                    console.log(chalk.red(`  ✕ ${err}`));
+                }
+            }
+            return;
+        }
         const config = loadConfig(kbPath);
         console.log(orange(t.globalHeader(chalk.bold(kbPath))));
-        const globalSync = new GlobalSyncManager(kbPath);
         const agentsToSync = opts.all ? undefined : config?.enabledAgents;
         const res = globalSync.syncAll(agentsToSync);
         console.log(t.globalStatusTitle);

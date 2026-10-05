@@ -180,7 +180,7 @@ A standards-compliant Model Context Protocol (MCP) server communicating over `st
 | `agenthub serve-mcp [--kb <path>]` | Run the built-in Stdio MCP Server for IDEs |
 | `agenthub use <dir>` | Set active default Knowledge Base globally across the OS |
 | `agenthub kb [list\|use\|remove\|edit]` | Manage, switch, edit, or delete registered Knowledge Bases |
-| `agenthub global [--all]` | Check and sync global IDE and MCP configurations |
+| `agenthub global [--all\|--restore]` | Check, sync, or restore IDE configurations from backups (`.bak`) |
 | `agenthub sync [-g, --global]` | Synchronize adapters, RepoMap, skills, and IDE configs |
 | `agenthub audit [--fix]` | Run Leak Guard secret audit with optional auto-migration to Vault |
 | `agenthub repomap` | Rebuild `PROJECTS_MAP.md` project architecture map |
@@ -408,7 +408,7 @@ npm link
 | `agenthub serve-mcp [--kb <path>]` | Запуск Stdio MCP сервера для IDE и агентов |
 | `agenthub use <dir>` | Установить активную Базу Знаний по умолчанию для всей системы |
 | `agenthub kb [list\|use\|remove\|edit]` | Управление, переключение, редактирование и удаление Баз Знаний |
-| `agenthub global [--all]` | Проверить и синхронизировать настройки IDE |
+| `agenthub global [--all\|--restore]` | Проверить, синхронизировать или восстановить настройки IDE из копий (`.bak`) |
 | `agenthub sync [-g, --global]` | Синхронизация адаптеров, карты проектов, скилов и IDE |
 | `agenthub audit [--fix]` | Проверка на утечки ключей (Leak Guard) с авто-переносом в Сейф |
 | `agenthub repomap` | Перестроение карты проектов `PROJECTS_MAP.md` |

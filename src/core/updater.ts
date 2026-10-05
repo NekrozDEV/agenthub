@@ -143,6 +143,16 @@ function writeCache(latestVersion: string): void {
 export async function checkForUpdates(force = false): Promise<UpdateCheckResult> {
   const currentVersion = getCurrentVersion();
 
+  // Respect user preference: if autoUpdate is 'off', never make unsolicited network requests
+  if (!force && getAutoUpdateSetting() === 'off') {
+    return {
+      updateAvailable: false,
+      currentVersion,
+      latestVersion: currentVersion,
+      source: 'cache',
+    };
+  }
+
   if (!force) {
     const cache = readCache();
     if (cache && Date.now() - cache.lastChecked < CHECK_INTERVAL_MS) {
@@ -267,16 +277,27 @@ export async function performUpdate(lang: SupportedLanguage = 'en'): Promise<{ s
     }
   }
 
-  // Global npm install from GitHub archive (robust on all OSes, prevents Windows junction bugs and overwrites old links safely)
-  const tarballUrl = `https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz`;
-  console.log(chalk.gray(`npm install -g --force ${tarballUrl}`));
+  // Global npm install from GitHub archive: prioritize pinned release tag over main branch
+  const releaseTag = check.latestVersion.startsWith('v') ? check.latestVersion : `v${check.latestVersion}`;
+  const taggedTarball = `https://github.com/${GITHUB_REPO}/archive/refs/tags/${releaseTag}.tar.gz`;
+  const mainTarball = `https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz`;
   const isWindows = process.platform === 'win32';
   const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 
-  const res = spawnSync(npmCmd, ['install', '-g', '--force', tarballUrl], {
+  console.log(chalk.gray(`Attempting install from pinned release tag (${releaseTag})...`));
+  let res = spawnSync(npmCmd, ['install', '-g', '--force', taggedTarball], {
     stdio: 'inherit',
     shell: true,
   });
+
+  // If tag archive fails (e.g. tag not yet created on GitHub), fall back to main branch archive
+  if (res.status !== 0) {
+    console.log(chalk.yellow(`Release tag ${releaseTag} archive not found. Falling back to main branch...`));
+    res = spawnSync(npmCmd, ['install', '-g', '--force', mainTarball], {
+      stdio: 'inherit',
+      shell: true,
+    });
+  }
 
   if (res.status === 0) {
     writeCache(check.latestVersion);

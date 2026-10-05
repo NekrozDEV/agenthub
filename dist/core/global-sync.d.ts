@@ -23,6 +23,7 @@ export declare class GlobalSyncManager {
         parseError?: boolean;
     };
     private safeWriteJson;
+    private safeWriteFile;
     /**
      * Sync Claude Code CLI global configuration (~/.claude.json)
      */
@@ -55,6 +56,13 @@ export declare class GlobalSyncManager {
      * Sync Antigravity (Gemini) global rules and native skill
      */
     syncAntigravity(): GlobalSyncTarget;
+    /**
+     * Restores original IDE configuration files from .bak backups
+     */
+    restoreAllBackups(): {
+        restored: string[];
+        notFound: string[];
+    };
     /**
      * Sync all global IDE environments
      */

@@ -86,7 +86,26 @@ export class GlobalSyncManager {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.copyFileSync(filePath, `${filePath}.bak`);
+            }
+            catch { }
+        }
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    }
+    safeWriteFile(filePath, content) {
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.copyFileSync(filePath, `${filePath}.bak`);
+            }
+            catch { }
+        }
+        fs.writeFileSync(filePath, content, 'utf8');
     }
     /**
      * Sync Claude Code CLI global configuration (~/.claude.json)
@@ -133,6 +152,11 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
+            const claudeDir = path.join(this.getAppDataDir(), 'Claude');
+            if (!fs.existsSync(claudeDir) && !fs.existsSync(configPath)) {
+                target.details = 'Skipped: Claude Desktop is not installed on this system';
+                return target;
+            }
             const { data, parseError } = this.safeReadJson(configPath);
             if (parseError) {
                 target.details = 'Skipped: Failed to safely parse claude_desktop_config.json (file preserved)';
@@ -167,6 +191,11 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
+            const windsurfBase = path.join(os.homedir(), '.codeium', 'windsurf');
+            if (!fs.existsSync(windsurfBase) && !fs.existsSync(mcpConfigPath)) {
+                target.details = 'Skipped: Windsurf (.codeium/windsurf) is not installed on this system';
+                return target;
+            }
             // 1. MCP server registration
             const { data, parseError } = this.safeReadJson(mcpConfigPath);
             if (parseError) {
@@ -182,18 +211,14 @@ export class GlobalSyncManager {
             };
             this.safeWriteJson(mcpConfigPath, conf);
             // 2. Global rules injection
-            const rulesDir = path.dirname(rulesPath);
-            if (!fs.existsSync(rulesDir)) {
-                fs.mkdirSync(rulesDir, { recursive: true });
-            }
             const agenthubRule = `\n# AgentHub Global Knowledge Base\n- Active Knowledge Base: \`${this.knowledgeBasePath}\`\n- Use AgentHub MCP tools (\`agenthub_list_skills\`, \`agenthub_get_project_map\`, \`agenthub_get_handoff\`) for skills, project architecture, and cross-agent task continuity.\n- Secret Vault: Credentials are kept in AgentHub Vault. Never hardcode or leak secrets.\n`;
             if (!fs.existsSync(rulesPath)) {
-                fs.writeFileSync(rulesPath, `# Windsurf Global Memories\n${agenthubRule}`, 'utf8');
+                this.safeWriteFile(rulesPath, `# Windsurf Global Memories\n${agenthubRule}`);
             }
             else {
                 const existing = fs.readFileSync(rulesPath, 'utf8');
                 if (!existing.includes('AgentHub Global Knowledge Base')) {
-                    fs.appendFileSync(rulesPath, agenthubRule, 'utf8');
+                    this.safeWriteFile(rulesPath, existing + agenthubRule);
                 }
             }
             target.configured = true;
@@ -216,6 +241,11 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
+            const clineBase = path.dirname(configPath);
+            if (!fs.existsSync(clineBase) && !fs.existsSync(configPath)) {
+                target.details = 'Skipped: Cline VS Code extension storage not found (not installed)';
+                return target;
+            }
             const { data, parseError } = this.safeReadJson(configPath);
             if (parseError) {
                 target.details = 'Skipped: Failed to parse cline_mcp_settings.json (file preserved)';
@@ -256,6 +286,11 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
+            const rooBase = path.dirname(configPath);
+            if (!fs.existsSync(rooBase) && !fs.existsSync(configPath)) {
+                target.details = 'Skipped: Roo Code VS Code extension storage not found (not installed)';
+                return target;
+            }
             const { data, parseError } = this.safeReadJson(configPath);
             if (parseError) {
                 target.details = 'Skipped: Failed to parse Roo Code settings (file preserved)';
@@ -296,6 +331,11 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
+            const cursorBase = path.join(os.homedir(), '.cursor');
+            if (!fs.existsSync(cursorBase) && !fs.existsSync(configPath)) {
+                target.details = 'Skipped: Cursor (.cursor) directory not found (not installed)';
+                return target;
+            }
             const { data, parseError } = this.safeReadJson(configPath);
             if (parseError) {
                 target.details = 'Skipped: Failed to parse ~/.cursor/mcp.json (file preserved)';
@@ -331,8 +371,9 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
-            if (!fs.existsSync(continueDir)) {
-                fs.mkdirSync(continueDir, { recursive: true });
+            if (!fs.existsSync(continueDir) && !fs.existsSync(configYamlPath) && !fs.existsSync(configJsonPath)) {
+                target.details = 'Skipped: Continue.dev (.continue) directory not found (not installed)';
+                return target;
             }
             if (fs.existsSync(configJsonPath)) {
                 const { data, parseError } = this.safeReadJson(configJsonPath);
@@ -362,17 +403,17 @@ export class GlobalSyncManager {
             else {
                 const agenthubYamlBlock = `  - name: agenthub\n    command: "${process.execPath.replace(/\\/g, '/')}"\n    args:\n      - "${this.binPath.replace(/\\/g, '/')}"\n      - "serve-mcp"\n      - "--kb"\n      - "${this.knowledgeBasePath.replace(/\\/g, '/')}"`;
                 if (!fs.existsSync(configYamlPath)) {
-                    fs.writeFileSync(configYamlPath, `# Continue.dev Configuration\nmcpServers:\n${agenthubYamlBlock}\n`, 'utf8');
+                    this.safeWriteFile(configYamlPath, `# Continue.dev Configuration\nmcpServers:\n${agenthubYamlBlock}\n`);
                 }
                 else {
                     const content = fs.readFileSync(configYamlPath, 'utf8');
                     if (!content.includes('name: agenthub')) {
                         if (/mcpServers:\s*$/m.test(content) || /mcpServers:\s*\n/m.test(content)) {
                             const updated = content.replace(/(mcpServers:\s*\n)/, `$1${agenthubYamlBlock}\n`);
-                            fs.writeFileSync(configYamlPath, updated, 'utf8');
+                            this.safeWriteFile(configYamlPath, updated);
                         }
                         else {
-                            fs.appendFileSync(configYamlPath, `\n# AgentHub MCP Integration\nmcpServers:\n${agenthubYamlBlock}\n`, 'utf8');
+                            this.safeWriteFile(configYamlPath, `${content}\n# AgentHub MCP Integration\nmcpServers:\n${agenthubYamlBlock}\n`);
                         }
                     }
                 }
@@ -398,8 +439,10 @@ export class GlobalSyncManager {
             details: '',
         };
         try {
-            if (!fs.existsSync(antigravityDir)) {
-                fs.mkdirSync(antigravityDir, { recursive: true });
+            const geminiBase = path.join(os.homedir(), '.gemini');
+            if (!fs.existsSync(geminiBase) && !fs.existsSync(rulesPath)) {
+                target.details = 'Skipped: Antigravity (.gemini) directory not found (not installed)';
+                return target;
             }
             // 1. Write agenthub_rules.md in antigravity dir
             const content = `# Antigravity AgentHub Global Integration
@@ -409,7 +452,7 @@ export class GlobalSyncManager {
 - Vault security: All secrets isolated in AgentHub Vault (\`${path.join(this.knowledgeBasePath, '.hub', 'vault.env')}\`).
 - Skills directory: \`${path.join(this.knowledgeBasePath, 'skills')}\`
 `;
-            fs.writeFileSync(rulesPath, content, 'utf8');
+            this.safeWriteFile(rulesPath, content);
             // 2. Pre-install native skill for Antigravity/Gemini in ~/.gemini/config/skills/agenthub/SKILL.md
             const geminiSkillsDir = path.join(os.homedir(), '.gemini', 'config', 'skills', 'agenthub');
             if (!fs.existsSync(geminiSkillsDir)) {
@@ -437,7 +480,7 @@ You are connected to an AgentHub Knowledge Base at \`${this.knowledgeBasePath}\`
 - Audit secrets: \`agenthub audit\`
 - Handoff task: \`agenthub handoff create -t "<task>" -s "<summary>"\`
 `;
-            fs.writeFileSync(skillPath, skillContent, 'utf8');
+            this.safeWriteFile(skillPath, skillContent);
             target.configured = true;
             target.details = 'Updated agenthub_rules.md & installed native skill in ~/.gemini/config/skills/agenthub/';
         }
@@ -445,6 +488,40 @@ You are connected to an AgentHub Knowledge Base at \`${this.knowledgeBasePath}\`
             target.details = `Failed: ${err.message}`;
         }
         return target;
+    }
+    /**
+     * Restores original IDE configuration files from .bak backups
+     */
+    restoreAllBackups() {
+        const candidateFiles = [
+            path.join(os.homedir(), '.claude.json'),
+            path.join(this.getAppDataDir(), 'Claude', 'claude_desktop_config.json'),
+            path.join(os.homedir(), '.codeium', 'windsurf', 'mcp_config.json'),
+            path.join(os.homedir(), '.codeium', 'windsurf', 'memories', 'global_rules.md'),
+            path.join(this.getAppDataDir(), 'Code', 'User', 'globalStorage', 'saoudrizwan.claude-dev', 'settings', 'cline_mcp_settings.json'),
+            path.join(this.getAppDataDir(), 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings', 'cline_mcp_settings.json'),
+            path.join(os.homedir(), '.cursor', 'mcp.json'),
+            path.join(os.homedir(), '.continue', 'config.json'),
+            path.join(os.homedir(), '.continue', 'config.yaml'),
+            path.join(os.homedir(), '.gemini', 'antigravity', 'agenthub_rules.md'),
+            path.join(os.homedir(), '.gemini', 'config', 'skills', 'agenthub', 'SKILL.md'),
+        ];
+        const restored = [];
+        const notFound = [];
+        for (const filePath of candidateFiles) {
+            const bakPath = `${filePath}.bak`;
+            if (fs.existsSync(bakPath)) {
+                try {
+                    fs.copyFileSync(bakPath, filePath);
+                    fs.unlinkSync(bakPath);
+                    restored.push(filePath);
+                }
+                catch (e) {
+                    notFound.push(`${bakPath} (${e.message})`);
+                }
+            }
+        }
+        return { restored, notFound };
     }
     /**
      * Sync all global IDE environments

@@ -406,7 +406,27 @@ async function runMcpSuite() {
   if (auditData.leaksDetected !== 1 || !auditData.findings[0]?.masked.includes('...')) {
     throw new Error(`agenthub_audit_code failed to detect or mask leak: ${JSON.stringify(auditData)}`);
   }
-  console.log('✓ agenthub_audit_code successfully detected and masked secret leak');
+  if (auditData.findings[0]?.snippet?.includes('sk-12345678901234567890123456')) {
+    throw new Error('Security flaw: auditData snippet contained raw secret!');
+  }
+  console.log('✓ agenthub_audit_code successfully detected and masked secret leak (snippet sanitized)');
+
+  // 11b. Test path traversal rejection in agenthub_audit_code
+  const auditTraversalRes = await send({
+    jsonrpc: '2.0',
+    id: 121,
+    method: 'tools/call',
+    params: {
+      name: 'agenthub_audit_code',
+      arguments: {
+        directory: '../../..',
+      },
+    },
+  });
+  if (!auditTraversalRes?.error?.message?.includes('directory traversal outside Knowledge Base')) {
+    throw new Error(`Path traversal was not rejected! Response: ${JSON.stringify(auditTraversalRes)}`);
+  }
+  console.log('✓ Path traversal escape strictly blocked by agenthub_audit_code');
 
   // 12. List resources
   const resourcesListRes = await send({

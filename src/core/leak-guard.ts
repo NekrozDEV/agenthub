@@ -80,14 +80,16 @@ export class LeakGuard {
         let match: RegExpExecArray | null;
         while ((match = pattern.regex.exec(line)) !== null) {
           const secret = match[1] || match[0];
+          const masked = LeakGuard.mask(secret);
+          const sanitizedSnippet = line.replace(secret, masked).trim();
           findings.push({
             filePath,
             relativePath: path.relative(this.basePath, filePath),
             line: i + 1,
             type: pattern.type,
             matchedSecret: secret,
-            maskedSecret: LeakGuard.mask(secret),
-            snippet: line.trim(),
+            maskedSecret: masked,
+            snippet: sanitizedSnippet,
           });
         }
       }
