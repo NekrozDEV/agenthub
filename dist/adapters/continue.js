@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { MANAGED_MARKER, hasAgentHubMarker, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
+import { SecretVault } from '../core/vault.js';
 export class ContinueAdapter {
     id = 'continue';
     name = 'Continue.dev';
@@ -9,6 +11,8 @@ export class ContinueAdapter {
         if (!fs.existsSync(continueDir)) {
             fs.mkdirSync(continueDir, { recursive: true });
         }
+        // Ensure .continueignore
+        SecretVault.ensureIgnoreFile(knowledgeBasePath, '.continueignore');
         const binPath = getAgentHubBinPath();
         const configYamlPath = path.join(continueDir, 'config.yaml');
         const nodeExec = process.execPath.replace(/\\/g, '/');
@@ -16,7 +20,8 @@ export class ContinueAdapter {
         const kbPathNormalized = knowledgeBasePath.replace(/\\/g, '/');
         const agenthubEntry = `  - name: agenthub\n    command: "${nodeExec}"\n    args:\n      - "${agenthubBin}"\n      - "serve-mcp"\n      - "--kb"\n      - "${kbPathNormalized}"`;
         if (!fs.existsSync(configYamlPath)) {
-            const yamlContent = `# Continue.dev Configuration (AgentHub Managed)
+            const yamlContent = `${MANAGED_MARKER}
+# Continue.dev Configuration
 name: AgentHub Knowledge Base
 
 systemMessage: |
@@ -39,6 +44,15 @@ ${agenthubEntry}
         }
         else {
             const content = fs.readFileSync(configYamlPath, 'utf8');
+            if (!hasAgentHubMarker(content)) {
+                const bakPath = `${configYamlPath}.bak`;
+                if (!fs.existsSync(bakPath)) {
+                    try {
+                        fs.copyFileSync(configYamlPath, bakPath);
+                    }
+                    catch { }
+                }
+            }
             if (!content.includes('name: agenthub')) {
                 if (/mcpServers:\s*$/m.test(content) || /mcpServers:\s*\n/m.test(content)) {
                     const updated = content.replace(/(mcpServers:\s*\n)/, `$1${agenthubEntry}\n`);
@@ -51,9 +65,28 @@ ${agenthubEntry}
         }
     }
     cleanup(knowledgeBasePath) {
-        const configYamlPath = path.join(knowledgeBasePath, '.continue', 'config.yaml');
+        const continueDir = path.join(knowledgeBasePath, '.continue');
+        const configYamlPath = path.join(continueDir, 'config.yaml');
         if (fs.existsSync(configYamlPath)) {
-            fs.unlinkSync(configYamlPath);
+            try {
+                const content = fs.readFileSync(configYamlPath, 'utf8');
+                if (hasAgentHubMarker(content)) {
+                    safeCleanupManagedFile(configYamlPath);
+                }
+                else if (content.includes('name: agenthub')) {
+                    const bakPath = `${configYamlPath}.bak`;
+                    if (!fs.existsSync(bakPath)) {
+                        try {
+                            fs.copyFileSync(configYamlPath, bakPath);
+                        }
+                        catch { }
+                    }
+                    const cleaned = content.replace(/\s*- name: agenthub\s*\n\s*command:[^\n]*\n\s*args:\s*\n(\s*-[^\n]*\n){4}/g, '');
+                    fs.writeFileSync(configYamlPath, cleaned, 'utf8');
+                }
+            }
+            catch { }
         }
+        safeRemoveEmptyDir(continueDir);
     }
 }

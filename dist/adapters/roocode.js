@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import { MANAGED_MARKER, hasAgentHubMarker, safeWriteManagedRuleFile, safeCleanupManagedFile } from './base.js';
 export class RooCodeAdapter {
     id = 'roo-code';
     name = 'Roo Code (VS Code)';
     generateConfig(knowledgeBasePath, skills, mcps) {
         // 1. .roomodes custom instructions
         const roomodesPath = path.join(knowledgeBasePath, '.roomodes');
-        const content = JSON.stringify({
+        const modeData = {
+            _comment: MANAGED_MARKER,
             customModes: [
                 {
                     slug: 'agenthub-engineer',
@@ -16,24 +18,38 @@ export class RooCodeAdapter {
                     customInstructions: 'Always consult skills/agenthub-guide.md. For multi-project orientation, check PROJECTS_MAP.md. For task state across agent sessions, inspect HANDOFF.md. Secrets are stored in AgentHub Vault and must never be echoed or committed.',
                 },
             ],
-        }, null, 2);
-        fs.writeFileSync(roomodesPath, content, 'utf8');
+        };
+        if (fs.existsSync(roomodesPath)) {
+            try {
+                const raw = fs.readFileSync(roomodesPath, 'utf8');
+                if (!hasAgentHubMarker(raw)) {
+                    const bakPath = `${roomodesPath}.bak`;
+                    if (!fs.existsSync(bakPath)) {
+                        try {
+                            fs.copyFileSync(roomodesPath, bakPath);
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+        fs.writeFileSync(roomodesPath, JSON.stringify(modeData, null, 2), 'utf8');
         // Also support .clinerules if not present
         const clineRulesPath = path.join(knowledgeBasePath, '.clinerules');
         if (!fs.existsSync(clineRulesPath)) {
-            const clineContent = `# Roo Code Rules (AgentHub Managed)
+            const clineContent = `${MANAGED_MARKER}
+# Roo Code Rules
 - Consult \`PROJECTS_MAP.md\` to preserve context.
 - Read \`HANDOFF.md\` for cross-agent task checkpoints.
 - Follow \`skills/agenthub-guide.md\` and loaded skills.
 - Strictly adhere to zero-secrets policy. Credentials live in AgentHub Vault.
 `;
-            fs.writeFileSync(clineRulesPath, clineContent, 'utf8');
+            safeWriteManagedRuleFile(clineRulesPath, clineContent);
         }
     }
     cleanup(knowledgeBasePath) {
         const roomodesPath = path.join(knowledgeBasePath, '.roomodes');
-        if (fs.existsSync(roomodesPath)) {
-            fs.unlinkSync(roomodesPath);
-        }
+        safeCleanupManagedFile(roomodesPath);
     }
 }

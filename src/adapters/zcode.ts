@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { AgentAdapter } from './base.js';
+import { AgentAdapter, MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeCleanupIgnoreFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
 import { GlobalSyncManager } from '../core/global-sync.js';
+import { SecretVault } from '../core/vault.js';
 
 export class ZCodeAdapter implements AgentAdapter {
   id = 'zcode' as const;
@@ -11,7 +12,8 @@ export class ZCodeAdapter implements AgentAdapter {
   generateConfig(knowledgeBasePath: string, skills: string[], mcps: string[]): void {
     // 1. .zcoderules and AGENTS.md
     const zcodeRulesPath = path.join(knowledgeBasePath, '.zcoderules');
-    const content = `# ZCode Rules - AgentHub Managed
+    const content = `${MANAGED_MARKER}
+# ZCode Rules
 
 - Workspaces are situated under \`projects/\`.
 - Check \`PROJECTS_MAP.md\` to preserve context window.
@@ -19,39 +21,15 @@ export class ZCodeAdapter implements AgentAdapter {
 - Follow \`skills/agenthub-guide.md\` and other active skills in \`skills/\`.
 - Strictly adhere to zero-secrets policy. Credentials are stored in AgentHub Vault.
 `;
-    fs.writeFileSync(zcodeRulesPath, content, 'utf8');
+    safeWriteManagedRuleFile(zcodeRulesPath, content);
 
     const agentsMdPath = path.join(knowledgeBasePath, 'AGENTS.md');
     if (!fs.existsSync(agentsMdPath)) {
-      fs.writeFileSync(agentsMdPath, content, 'utf8');
+      safeWriteManagedRuleFile(agentsMdPath, content);
     }
 
     // 2. .zcodeignore
-    const zcodeIgnorePath = path.join(knowledgeBasePath, '.zcodeignore');
-    const ignoreEntries = [
-      '# AgentHub Vault Isolation',
-      '.hub/',
-      '*.env*',
-      '.env*',
-      '*.bak',
-    ];
-
-    if (!fs.existsSync(zcodeIgnorePath)) {
-      fs.writeFileSync(zcodeIgnorePath, ignoreEntries.join('\n') + '\n', 'utf8');
-    } else {
-      const existing = fs.readFileSync(zcodeIgnorePath, 'utf8');
-      const existingLines = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
-      const toAdd: string[] = [];
-      for (const entry of ignoreEntries) {
-        if (!entry.startsWith('#') && !existingLines.has(entry)) {
-          toAdd.push(entry);
-        }
-      }
-      if (toAdd.length > 0) {
-        const prefix = existing.endsWith('\n') || existing.length === 0 ? '' : '\n';
-        fs.appendFileSync(zcodeIgnorePath, prefix + '# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
-      }
-    }
+    SecretVault.ensureIgnoreFile(knowledgeBasePath, '.zcodeignore');
 
     // 3. .zcode/mcp.json (Safe merge with real executable path)
     const zcodeDir = path.join(knowledgeBasePath, '.zcode');
@@ -71,6 +49,10 @@ export class ZCodeAdapter implements AgentAdapter {
       } catch {
         conf = { mcpServers: {} };
       }
+      const bakPath = `${mcpConfigPath}.bak`;
+      if (!fs.existsSync(bakPath)) {
+        try { fs.copyFileSync(mcpConfigPath, bakPath); } catch {}
+      }
     }
     if (!conf.mcpServers) conf.mcpServers = {};
 
@@ -84,23 +66,27 @@ export class ZCodeAdapter implements AgentAdapter {
 
   cleanup(knowledgeBasePath: string): void {
     const zcodeRulesPath = path.join(knowledgeBasePath, '.zcoderules');
-    if (fs.existsSync(zcodeRulesPath)) {
-      fs.unlinkSync(zcodeRulesPath);
-    }
+    safeCleanupManagedFile(zcodeRulesPath);
+
+    const agentsMdPath = path.join(knowledgeBasePath, 'AGENTS.md');
+    safeCleanupManagedFile(agentsMdPath);
 
     const zcodeIgnorePath = path.join(knowledgeBasePath, '.zcodeignore');
-    if (fs.existsSync(zcodeIgnorePath)) {
-      fs.unlinkSync(zcodeIgnorePath);
-    }
+    safeCleanupIgnoreFile(zcodeIgnorePath);
 
-    const mcpConfigPath = path.join(knowledgeBasePath, '.zcode', 'mcp.json');
+    const zcodeDir = path.join(knowledgeBasePath, '.zcode');
+    const mcpConfigPath = path.join(zcodeDir, 'mcp.json');
     if (fs.existsSync(mcpConfigPath)) {
       try {
         const raw = fs.readFileSync(mcpConfigPath, 'utf8');
         const conf = GlobalSyncManager.parseJsonc(raw);
         if (conf?.mcpServers?.agenthub) {
           delete conf.mcpServers.agenthub;
-          if (Object.keys(conf.mcpServers).length === 0) {
+          if (Object.keys(conf.mcpServers).length === 0 && Object.keys(conf).length === 1) {
+            const bakPath = `${mcpConfigPath}.bak`;
+            if (!fs.existsSync(bakPath)) {
+              try { fs.copyFileSync(mcpConfigPath, bakPath); } catch {}
+            }
             fs.unlinkSync(mcpConfigPath);
           } else {
             fs.writeFileSync(mcpConfigPath, JSON.stringify(conf, null, 2), 'utf8');
@@ -110,5 +96,8 @@ export class ZCodeAdapter implements AgentAdapter {
         // Safe ignore
       }
     }
+
+    safeRemoveEmptyDir(zcodeDir);
   }
 }
+

@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { AgentAdapter } from './base.js';
+import { AgentAdapter, MANAGED_MARKER, safeWriteManagedRuleFile, safeCleanupManagedFile, safeRemoveEmptyDir } from './base.js';
 import { getAgentHubBinPath } from '../core/config.js';
 import { GlobalSyncManager } from '../core/global-sync.js';
+import { SecretVault } from '../core/vault.js';
 
 export class CursorAdapter implements AgentAdapter {
   id = 'cursor' as const;
@@ -11,7 +12,8 @@ export class CursorAdapter implements AgentAdapter {
   generateConfig(knowledgeBasePath: string, skills: string[], mcps: string[]): void {
     // 1. .cursorrules
     const cursorRulesPath = path.join(knowledgeBasePath, '.cursorrules');
-    const content = `# Cursor Rules - AgentHub Managed
+    const content = `${MANAGED_MARKER}
+# Cursor Rules
 
 - Workspaces are situated under \`projects/\`.
 - Check \`PROJECTS_MAP.md\` to preserve context window.
@@ -19,9 +21,12 @@ export class CursorAdapter implements AgentAdapter {
 - Follow \`skills/agenthub-guide.md\` and other active skills in \`skills/\`.
 - Strictly adhere to zero-secrets policy. Credentials are stored in AgentHub Vault.
 `;
-    fs.writeFileSync(cursorRulesPath, content, 'utf8');
+    safeWriteManagedRuleFile(cursorRulesPath, content);
 
-    // 2. .cursor/mcp.json (Safe merge with real executable path)
+    // 2. Ensure .cursorignore
+    SecretVault.ensureIgnoreFile(knowledgeBasePath, '.cursorignore');
+
+    // 3. .cursor/mcp.json (Safe merge with real executable path)
     const cursorDir = path.join(knowledgeBasePath, '.cursor');
     if (!fs.existsSync(cursorDir)) {
       fs.mkdirSync(cursorDir, { recursive: true });
@@ -39,6 +44,10 @@ export class CursorAdapter implements AgentAdapter {
       } catch {
         conf = { mcpServers: {} };
       }
+      const bakPath = `${mcpConfigPath}.bak`;
+      if (!fs.existsSync(bakPath)) {
+        try { fs.copyFileSync(mcpConfigPath, bakPath); } catch {}
+      }
     }
     if (!conf.mcpServers) conf.mcpServers = {};
 
@@ -52,18 +61,21 @@ export class CursorAdapter implements AgentAdapter {
 
   cleanup(knowledgeBasePath: string): void {
     const cursorRulesPath = path.join(knowledgeBasePath, '.cursorrules');
-    if (fs.existsSync(cursorRulesPath)) {
-      fs.unlinkSync(cursorRulesPath);
-    }
+    safeCleanupManagedFile(cursorRulesPath);
 
-    const mcpConfigPath = path.join(knowledgeBasePath, '.cursor', 'mcp.json');
+    const cursorDir = path.join(knowledgeBasePath, '.cursor');
+    const mcpConfigPath = path.join(cursorDir, 'mcp.json');
     if (fs.existsSync(mcpConfigPath)) {
       try {
         const raw = fs.readFileSync(mcpConfigPath, 'utf8');
         const conf = GlobalSyncManager.parseJsonc(raw);
         if (conf?.mcpServers?.agenthub) {
           delete conf.mcpServers.agenthub;
-          if (Object.keys(conf.mcpServers).length === 0) {
+          if (Object.keys(conf.mcpServers).length === 0 && Object.keys(conf).length === 1) {
+            const bakPath = `${mcpConfigPath}.bak`;
+            if (!fs.existsSync(bakPath)) {
+              try { fs.copyFileSync(mcpConfigPath, bakPath); } catch {}
+            }
             fs.unlinkSync(mcpConfigPath);
           } else {
             fs.writeFileSync(mcpConfigPath, JSON.stringify(conf, null, 2), 'utf8');
@@ -73,5 +85,8 @@ export class CursorAdapter implements AgentAdapter {
         // Safe ignore
       }
     }
+
+    safeRemoveEmptyDir(cursorDir);
   }
 }
+

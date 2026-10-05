@@ -745,7 +745,7 @@ async function runMcpSuite() {
       throw new Error(`Missing expected ignore file: ${ignFile}`);
     }
     const ignContent = fs.readFileSync(fullIgnPath, 'utf8');
-    if (!ignContent.includes('.hub/') || !ignContent.includes('*.env*') || !ignContent.includes('.env*') || !ignContent.includes('*.bak')) {
+    if (!ignContent.includes('.hub/') || !ignContent.includes('*.env*') || !ignContent.includes('.env*') || !ignContent.includes('*.bak') || !ignContent.includes('!.env.example') || !ignContent.includes('!*.env.example')) {
       throw new Error(`Ignore file ${ignFile} missing required patterns: ${ignContent}`);
     }
   }
@@ -768,7 +768,10 @@ async function runMcpSuite() {
   if (vaultFileContent.includes('injected into MCP processes by AgentHub Proxy')) {
     throw new Error('Old misleading MCP proxy comment still present in vault.env!');
   }
-  if (!vaultFileContent.includes('ZERO-LEAK SECURITY') || !vaultFileContent.includes('Stored locally for AgentHub tools')) {
+  if (vaultFileContent.includes('pre-read sanitization')) {
+    throw new Error('Misleading pre-read sanitization comment still present in vault.env!');
+  }
+  if (!vaultFileContent.includes('ZERO-LEAK SECURITY') || !vaultFileContent.includes('Stored locally; never send these values to a model.')) {
     throw new Error(`vault.env missing truthful security comment: ${vaultFileContent}`);
   }
   console.log('✓ SecretVault creates and maintains all agent ignore files idempotently with truthful comments');
@@ -952,6 +955,91 @@ async function runMcpSuite() {
     throw new Error(`agenthub kb remove --help missing -y or --delete-files flag: ${kbRemoveHelp}`);
   }
   console.log('✓ CLI commands support --include-backups, -y/--yes, and --delete-files flags cleanly');
+
+  // 12j. Verify SecretVault constructor does not pollute empty KB with ignore files, and selective ensureAgentIgnoreFiles works
+  console.log('Test 12j: Testing SecretVault selective ignore file generation & clean KB...');
+  const cleanKbDir = path.join(testKbDir, 'clean_empty_kb');
+  fs.mkdirSync(cleanKbDir, { recursive: true });
+  const cleanVault = new SecretVault(cleanKbDir);
+  cleanVault.setSecret('FOO', 'bar');
+  for (const ignFile of expectedIgnoreFiles) {
+    if (fs.existsSync(path.join(cleanKbDir, ignFile))) {
+      throw new Error(`SecretVault polluted empty KB with unexpected ignore file: ${ignFile}`);
+    }
+  }
+  // Test selective generation: only cursor
+  SecretVault.ensureAgentIgnoreFiles(cleanKbDir, ['cursor']);
+  if (!fs.existsSync(path.join(cleanKbDir, '.cursorignore'))) {
+    throw new Error('SecretVault failed to generate selective .cursorignore');
+  }
+  if (fs.existsSync(path.join(cleanKbDir, '.codeiumignore')) || fs.existsSync(path.join(cleanKbDir, '.continueignore')) || fs.existsSync(path.join(cleanKbDir, '.zcodeignore'))) {
+    throw new Error('SecretVault generated non-enabled agent ignore files during selective generation');
+  }
+  console.log('✓ SecretVault does not unconditionally pollute KB and honors enabledAgents selectively');
+
+  // 12k. Verify syncAdapters & adapter cleanup NEVER delete custom user files without # AgentHub Managed marker
+  console.log('Test 12k: Testing custom user file preservation and safe cleanup with backups...');
+  const customUserKb = path.join(testKbDir, 'custom_user_kb');
+  fs.mkdirSync(customUserKb, { recursive: true });
+  const customClaude = path.join(customUserKb, 'CLAUDE.md');
+  const customCursor = path.join(customUserKb, '.cursorrules');
+  const customOpencodeDir = path.join(customUserKb, '.opencode');
+  const customOpencodeConfig = path.join(customOpencodeDir, 'config.json');
+  const customDeepseekDir = path.join(customUserKb, '.deepseek');
+  const customDeepseekPrompt = path.join(customDeepseekDir, 'system_prompt.md');
+  const customUserExtraFile = path.join(customOpencodeDir, 'my_custom_extra.json');
+
+  fs.writeFileSync(customClaude, '# МОЙ CLAUDE.md\nCustom prompt here\n', 'utf8');
+  fs.writeFileSync(customCursor, '# МОЙ .cursorrules\nCustom rules here\n', 'utf8');
+  fs.mkdirSync(customOpencodeDir, { recursive: true });
+  fs.writeFileSync(customOpencodeConfig, '{"my":"config"}', 'utf8');
+  fs.writeFileSync(customUserExtraFile, '{"extra":"keep_me"}', 'utf8');
+  fs.mkdirSync(customDeepseekDir, { recursive: true });
+  fs.writeFileSync(customDeepseekPrompt, '# My custom prompt\n', 'utf8');
+
+  // Run syncAdapters with disabled agents (empty list) -> triggers cleanup for all
+  const { syncAdapters } = await import('../dist/adapters/index.js');
+  await syncAdapters(customUserKb, [], [], []);
+
+  // Assert user custom files were NOT deleted
+  if (!fs.existsSync(customClaude)) {
+    throw new Error('P0 regression: syncAdapters cleanup deleted user CLAUDE.md!');
+  }
+  if (fs.readFileSync(customClaude, 'utf8') !== '# МОЙ CLAUDE.md\nCustom prompt here\n') {
+    throw new Error('P0 regression: syncAdapters cleanup corrupted user CLAUDE.md!');
+  }
+  if (!fs.existsSync(customCursor)) {
+    throw new Error('P0 regression: syncAdapters cleanup deleted user .cursorrules!');
+  }
+  if (!fs.existsSync(customOpencodeConfig)) {
+    throw new Error('P0 regression: syncAdapters cleanup deleted user .opencode/config.json!');
+  }
+  if (!fs.existsSync(customUserExtraFile)) {
+    throw new Error('P0 regression: syncAdapters cleanup deleted user .opencode extra files!');
+  }
+  if (!fs.existsSync(customDeepseekPrompt)) {
+    throw new Error('P0 regression: syncAdapters cleanup deleted user .deepseek/system_prompt.md!');
+  }
+
+  // Now test generateConfig on existing user files: creates .bak and preserves user content
+  await syncAdapters(customUserKb, ['claude-code', 'cursor'], [], []);
+  if (!fs.existsSync(`${customClaude}.bak`)) {
+    throw new Error('generateConfig failed to create .bak backup for custom CLAUDE.md');
+  }
+  const mergedClaude = fs.readFileSync(customClaude, 'utf8');
+  if (!mergedClaude.includes('# МОЙ CLAUDE.md') || !mergedClaude.includes('# AgentHub Managed')) {
+    throw new Error(`generateConfig did not preserve user content with # AgentHub Managed marker: ${mergedClaude}`);
+  }
+
+  // Now test cleanup on AgentHub-managed file: creates .bak and removes cleanly
+  await syncAdapters(customUserKb, [], [], []);
+  if (fs.existsSync(customClaude)) {
+    throw new Error('cleanup failed to unlink AgentHub-managed CLAUDE.md');
+  }
+  if (!fs.existsSync(`${customClaude}.bak`)) {
+    throw new Error('cleanup did not ensure .bak existed before unlinking managed file');
+  }
+  console.log('✓ Custom user files without marker are strictly protected; managed files create .bak before cleanup');
 
   proc.kill();
   if (fs.existsSync(testKbDir)) fs.rmSync(testKbDir, { recursive: true, force: true });

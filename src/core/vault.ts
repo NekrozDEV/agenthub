@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { SupportedAgent } from './config.js';
 
 export interface SecretEntry {
   key: string;
@@ -13,11 +14,13 @@ export class SecretVault {
   private knowledgeBasePath: string;
   private secrets: Map<string, string> = new Map();
 
-  constructor(knowledgeBasePath: string) {
+  constructor(knowledgeBasePath: string, enabledAgents?: SupportedAgent[]) {
     this.knowledgeBasePath = knowledgeBasePath;
     this.vaultPath = path.join(knowledgeBasePath, '.hub', 'vault.env');
     this.load();
-    SecretVault.ensureAgentIgnoreFiles(this.knowledgeBasePath);
+    if (enabledAgents && enabledAgents.length > 0) {
+      SecretVault.ensureAgentIgnoreFiles(this.knowledgeBasePath, enabledAgents);
+    }
   }
 
   /**
@@ -50,9 +53,11 @@ export class SecretVault {
   /**
    * Save secrets safely to .hub/vault.env with strict local file permissions
    */
-  public save(): void {
+  public save(enabledAgents?: SupportedAgent[]): void {
     SecretVault.ensureGitIgnored(this.knowledgeBasePath);
-    SecretVault.ensureAgentIgnoreFiles(this.knowledgeBasePath);
+    if (enabledAgents && enabledAgents.length > 0) {
+      SecretVault.ensureAgentIgnoreFiles(this.knowledgeBasePath, enabledAgents);
+    }
 
     const dir = path.dirname(this.vaultPath);
     if (!fs.existsSync(dir)) {
@@ -62,7 +67,7 @@ export class SecretVault {
     const lines = [
       '# AgentHub Local Secret Vault',
       '# ZERO-LEAK SECURITY: This file is NEVER exposed to AI agents or committed to git.',
-      '# Stored locally for AgentHub tools and pre-read sanitization; isolated from agent contexts.',
+      '# Stored locally; never send these values to a model.',
       '',
     ];
 
@@ -73,11 +78,13 @@ export class SecretVault {
     fs.writeFileSync(this.vaultPath, lines.join('\n') + '\n', { mode: 0o600 });
   }
 
-  public setSecret(key: string, value: string): void {
+  public setSecret(key: string, value: string, enabledAgents?: SupportedAgent[]): void {
     SecretVault.ensureGitIgnored(this.knowledgeBasePath);
-    SecretVault.ensureAgentIgnoreFiles(this.knowledgeBasePath);
+    if (enabledAgents && enabledAgents.length > 0) {
+      SecretVault.ensureAgentIgnoreFiles(this.knowledgeBasePath, enabledAgents);
+    }
     this.secrets.set(key, value);
-    this.save();
+    this.save(enabledAgents);
   }
 
   public getSecret(key: string): string | undefined {
@@ -108,6 +115,8 @@ export class SecretVault {
     '.hub/',
     '*.env*',
     '.env*',
+    '!.env.example',
+    '!*.env.example',
     '*.bak',
   ];
 
@@ -118,43 +127,57 @@ export class SecretVault {
     '.zcodeignore',
   ];
 
+  public static readonly AGENT_TO_IGNORE_FILE: Partial<Record<SupportedAgent, string>> = {
+    cursor: '.cursorignore',
+    windsurf: '.codeiumignore',
+    continue: '.continueignore',
+    zcode: '.zcodeignore',
+  };
+
   /**
    * Auto-generate and maintain agent ignore files (.cursorignore, .codeiumignore, .continueignore, .zcodeignore)
    * preventing AI models from reading internal vault files, environment files, or backups.
+   * If enabledAgents is specified, only ignore files for those agents are generated.
    */
-  public static ensureAgentIgnoreFiles(knowledgeBasePath: string): void {
-    for (const ignoreFile of SecretVault.AGENT_IGNORE_FILES) {
-      const fullPath = path.join(knowledgeBasePath, ignoreFile);
-      if (!fs.existsSync(fullPath)) {
-        fs.writeFileSync(fullPath, SecretVault.AGENT_IGNORE_ENTRIES.join('\n') + '\n', 'utf8');
-        continue;
+  public static ensureAgentIgnoreFiles(knowledgeBasePath: string, enabledAgents?: SupportedAgent[]): void {
+    const targetFiles: string[] = enabledAgents !== undefined
+      ? enabledAgents.map((a) => SecretVault.AGENT_TO_IGNORE_FILE[a]).filter((f): f is string => Boolean(f))
+      : SecretVault.AGENT_IGNORE_FILES;
+
+    for (const ignoreFile of targetFiles) {
+      SecretVault.ensureIgnoreFile(knowledgeBasePath, ignoreFile);
+    }
+  }
+
+  public static ensureIgnoreFile(knowledgeBasePath: string, ignoreFileName: string): void {
+    const fullPath = path.join(knowledgeBasePath, ignoreFileName);
+    if (!fs.existsSync(fullPath)) {
+      fs.writeFileSync(fullPath, SecretVault.AGENT_IGNORE_ENTRIES.join('\n') + '\n', 'utf8');
+      return;
+    }
+
+    try {
+      const existing = fs.readFileSync(fullPath, 'utf8');
+      const existingLines = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
+      const toAdd: string[] = [];
+
+      for (const entry of SecretVault.AGENT_IGNORE_ENTRIES) {
+        if (!entry.startsWith('#') && !existingLines.has(entry)) {
+          toAdd.push(entry);
+        }
       }
 
-      try {
-        const existing = fs.readFileSync(fullPath, 'utf8');
-        const existingLines = new Set(existing.split(/\r?\n/).map((l) => l.trim()));
-        const toAdd: string[] = [];
-
-        for (const entry of SecretVault.AGENT_IGNORE_ENTRIES) {
-          if (!entry.startsWith('#') && !existingLines.has(entry)) {
-            toAdd.push(entry);
-          }
-        }
-
-        if (toAdd.length > 0) {
-          const prefix = existing.endsWith('\n') || existing.length === 0 ? '' : '\n';
-          fs.appendFileSync(fullPath, prefix + '# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
-        }
-      } catch {}
-    }
+      if (toAdd.length > 0) {
+        const prefix = existing.endsWith('\n') || existing.length === 0 ? '' : '\n';
+        fs.appendFileSync(fullPath, prefix + '# AgentHub Vault Isolation\n' + toAdd.join('\n') + '\n', 'utf8');
+      }
+    } catch {}
   }
 
   /**
    * Check if gitignore in the knowledge base excludes the vault and safety backups
    */
   public static ensureGitIgnored(knowledgeBasePath: string): void {
-    SecretVault.ensureAgentIgnoreFiles(knowledgeBasePath);
-
     const gitignorePath = path.join(knowledgeBasePath, '.gitignore');
     const ignoreEntries = [
       '# AgentHub Security Vault',
@@ -187,3 +210,4 @@ export class SecretVault {
     }
   }
 }
+
