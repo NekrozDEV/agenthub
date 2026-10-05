@@ -19,7 +19,7 @@ interface PatternDef {
 export const LEAK_PATTERNS: PatternDef[] = [
   {
     type: 'OpenAI API Key',
-    regex: /\b(sk-[a-zA-Z0-9_-]{24,64})\b/g,
+    regex: /\b(sk-(?!ant-)[a-zA-Z0-9_-]{24,64})\b/g,
   },
   {
     type: 'Anthropic API Key',
@@ -75,23 +75,42 @@ export class LeakGuard {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      const lineMatches: Array<{ type: string; secret: string; masked: string }> = [];
+
       for (const pattern of LEAK_PATTERNS) {
         pattern.regex.lastIndex = 0;
         let match: RegExpExecArray | null;
         while ((match = pattern.regex.exec(line)) !== null) {
           const secret = match[1] || match[0];
-          const masked = LeakGuard.mask(secret);
-          const sanitizedSnippet = line.replace(secret, masked).trim();
-          findings.push({
-            filePath,
-            relativePath: path.relative(this.basePath, filePath),
-            line: i + 1,
-            type: pattern.type,
-            matchedSecret: secret,
-            maskedSecret: masked,
-            snippet: sanitizedSnippet,
-          });
+          if (!lineMatches.some((lm) => lm.secret === secret)) {
+            lineMatches.push({
+              type: pattern.type,
+              secret,
+              masked: LeakGuard.mask(secret),
+            });
+          }
         }
+      }
+
+      if (lineMatches.length === 0) continue;
+
+      // Fully sanitize the line by masking EVERY detected secret on this line
+      let fullySanitizedSnippet = line;
+      for (const lm of lineMatches) {
+        fullySanitizedSnippet = fullySanitizedSnippet.replaceAll(lm.secret, lm.masked);
+      }
+      fullySanitizedSnippet = fullySanitizedSnippet.trim();
+
+      for (const lm of lineMatches) {
+        findings.push({
+          filePath,
+          relativePath: path.relative(this.basePath, filePath),
+          line: i + 1,
+          type: lm.type,
+          matchedSecret: lm.secret,
+          maskedSecret: lm.masked,
+          snippet: fullySanitizedSnippet,
+        });
       }
     }
 
@@ -138,12 +157,56 @@ export class LeakGuard {
   }
 
   /**
-   * Sanitizes a file by replacing the leaked secret with a placeholder env var name
+   * Sanitizes a file by safely replacing the leaked secret with an environment variable reference
+   * Automatically creates a .bak backup before modifying any file.
+   * Strips surrounding quotes in JS/TS/Python code to prevent literal string quotes around process.env.
    */
   public redactSecretInFile(finding: LeakFinding, envVarName: string): boolean {
     try {
+      if (!fs.existsSync(finding.filePath)) return false;
+
+      // 1. Create a safety backup (.bak)
+      try {
+        fs.copyFileSync(finding.filePath, `${finding.filePath}.bak`);
+      } catch {}
+
       const content = fs.readFileSync(finding.filePath, 'utf8');
-      const updated = content.replaceAll(finding.matchedSecret, `process.env.${envVarName} || ""`);
+      const ext = path.extname(finding.filePath).toLowerCase();
+      const isJsTs = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'].includes(ext);
+      const isPython = ext === '.py';
+      const isJson = ext === '.json';
+      const isEnv = path.basename(finding.filePath).startsWith('.env');
+
+      let replacement: string;
+      if (isJsTs) {
+        replacement = `process.env.${envVarName} || ""`;
+      } else if (isPython) {
+        replacement = `os.environ.get("${envVarName}", "")`;
+      } else if (isJson || isEnv) {
+        replacement = `\${${envVarName}}`;
+      } else {
+        replacement = `process.env.${envVarName} || ""`;
+      }
+
+      // Check if secret is surrounded by quotes: "secret", 'secret', `secret`
+      const doubleQuoted = `"${finding.matchedSecret}"`;
+      const singleQuoted = `'${finding.matchedSecret}'`;
+      const backtickQuoted = `\`${finding.matchedSecret}\``;
+
+      let updated = content;
+      if (isJson) {
+        // JSON requires string values
+        updated = updated.replaceAll(finding.matchedSecret, `\${${envVarName}}`);
+      } else if (updated.includes(doubleQuoted)) {
+        updated = updated.replaceAll(doubleQuoted, replacement);
+      } else if (updated.includes(singleQuoted)) {
+        updated = updated.replaceAll(singleQuoted, replacement);
+      } else if (updated.includes(backtickQuoted)) {
+        updated = updated.replaceAll(backtickQuoted, replacement);
+      } else {
+        updated = updated.replaceAll(finding.matchedSecret, replacement);
+      }
+
       fs.writeFileSync(finding.filePath, updated, 'utf8');
       return true;
     } catch {

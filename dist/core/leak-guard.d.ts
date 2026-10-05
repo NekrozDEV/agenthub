@@ -28,7 +28,9 @@ export declare class LeakGuard {
      */
     scanDirectory(dirPath?: string): LeakFinding[];
     /**
-     * Sanitizes a file by replacing the leaked secret with a placeholder env var name
+     * Sanitizes a file by safely replacing the leaked secret with an environment variable reference
+     * Automatically creates a .bak backup before modifying any file.
+     * Strips surrounding quotes in JS/TS/Python code to prevent literal string quotes around process.env.
      */
     redactSecretInFile(finding: LeakFinding, envVarName: string): boolean;
 }

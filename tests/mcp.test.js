@@ -428,6 +428,49 @@ async function runMcpSuite() {
   }
   console.log('✓ Path traversal escape strictly blocked by agenthub_audit_code');
 
+  // 11c. Test multi-secret single-line masking in agenthub_audit_code
+  const multiSecretRes = await send({
+    jsonrpc: '2.0',
+    id: 122,
+    method: 'tools/call',
+    params: {
+      name: 'agenthub_audit_code',
+      arguments: {
+        text: 'const a = "sk-111111111111111111111111"; const b = "sk-ant-222222222222222222222222";',
+      },
+    },
+  });
+  const multiData = JSON.parse(multiSecretRes?.result?.content?.[0]?.text || '{}');
+  if (multiData.leaksDetected !== 2) {
+    throw new Error(`Expected 2 leaks, found: ${multiData.leaksDetected}`);
+  }
+  for (const f of multiData.findings) {
+    if (f.snippet.includes('sk-111111111111111111111111') || f.snippet.includes('sk-ant-222222222222222222222222')) {
+      throw new Error(`Security flaw: multi-secret snippet still contained raw secret: ${f.snippet}`);
+    }
+  }
+  console.log('✓ Multiple secrets on the same line are all strictly masked in snippets');
+
+  // 11d. Test LeakGuard.redactSecretInFile quote stripping and .bak creation
+  const { LeakGuard } = await import('../dist/core/leak-guard.js');
+  const tempAuditFile = path.join(testKbDir, 'sample_auth.js');
+  fs.writeFileSync(tempAuditFile, 'const secretKey = "sk-333333333333333333333333";\n', 'utf8');
+  const guardInstance = new LeakGuard(testKbDir);
+  const sampleFindings = guardInstance.scanContent(fs.readFileSync(tempAuditFile, 'utf8'), tempAuditFile);
+  if (sampleFindings.length !== 1) {
+    throw new Error('Failed to find secret in sample_auth.js');
+  }
+  const redacted = guardInstance.redactSecretInFile(sampleFindings[0], 'AUTO_SECRET_OPENAI');
+  if (!redacted) throw new Error('redactSecretInFile returned false');
+  const updatedCode = fs.readFileSync(tempAuditFile, 'utf8');
+  if (updatedCode.includes('"process.env') || updatedCode.includes('process.env.AUTO_SECRET_OPENAI || ""') === false) {
+    throw new Error(`redactSecretInFile produced broken quoted syntax: ${updatedCode}`);
+  }
+  if (!fs.existsSync(`${tempAuditFile}.bak`)) {
+    throw new Error('.bak backup file was not created by redactSecretInFile!');
+  }
+  console.log('✓ redactSecretInFile creates .bak backup and strips quotes for valid process.env JS syntax');
+
   // 12. List resources
   const resourcesListRes = await send({
     jsonrpc: '2.0',

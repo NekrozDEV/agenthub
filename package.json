@@ -1,6 +1,6 @@
 {
   "name": "open-agenthub",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Universal Knowledge Base & Zero-Leak Security Hub for AI Agents (Antigravity, Claude Code, DeepSeek, Hermes, OpenCode, Cursor, Windsurf)",
   "main": "dist/index.js",
   "bin": {
@@ -13,7 +13,9 @@
     "bin",
     "assets",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "type": "module",
   "scripts": {
@@ -53,8 +55,7 @@
     "@modelcontextprotocol/sdk": "^1.32.0",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
-    "dotenv": "^16.4.7",
-    "fast-glob": "^3.3.3"
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
