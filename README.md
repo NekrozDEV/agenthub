@@ -48,22 +48,31 @@ Modern AI software development is suffering from **severe fragmentation, token b
 
 ## ⚡ Quick Start & Installation
 
-### Option 1: Global Installation via Git & npm (Recommended)
+### Option 1: Global Installation via npm (Recommended)
 
-You can install **AgentHub** globally on your system directly from GitHub in a single command:
+You can install **OpenAgentHub** globally on your system directly from the official npm registry:
 
 ```bash
-# Recommended: Install globally from GitHub archive (works reliably on Windows, macOS, Linux)
-npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+# Recommended: Install globally via npm
+npm install -g open-agenthub
 
-# Or install via Git repository (add --force if overwriting an existing link or install):
-npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
+# Or run instantly via npx without installing
+npx open-agenthub init
 
 # Run the interactive setup wizard in any directory
 agenthub init
 
 # Or launch the interactive Main TUI Menu
 agenthub
+```
+
+#### Alternative: Install from GitHub
+```bash
+# Directly from GitHub archive
+npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+
+# Or via Git repository
+npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
 ```
 
 > [!TIP]
@@ -276,22 +285,31 @@ If **AgentHub** saves your tokens, time, and simplifies your multi-agent workflo
 
 ## ⚡ Быстрая установка
 
-### Вариант 1: Глобальная установка через Git & npm (Рекомендуется)
+### Вариант 1: Глобальная установка через npm (Рекомендуется)
 
-Вы можете установить **AgentHub** глобально в систему напрямую из официального GitHub-репозитория одной командой:
+Вы можете установить **OpenAgentHub** глобально в систему напрямую из официального реестра npm одной командой:
 
 ```bash
-# Рекомендуется: Быстрая установка напрямую из архива GitHub (Windows, macOS, Linux)
-npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+# Рекомендуется: Быстрая установка через npm
+npm install -g open-agenthub
 
-# Либо через Git (если обновляете существующую установку, добавьте --force):
-npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
+# Либо запуск без установки через npx
+npx open-agenthub init
 
 # Запуск интерактивного мастера настройки в любой папке
 agenthub init
 
 # Либо запуск интерактивного Главного меню
 agenthub
+```
+
+#### Альтернатива: Установка через GitHub
+```bash
+# Напрямую из архива GitHub (Windows, macOS, Linux)
+npm install -g https://github.com/NekrozDEV/agenthub/archive/refs/heads/main.tar.gz
+
+# Либо через Git
+npm install -g --force git+https://github.com/NekrozDEV/agenthub.git
 ```
 
 > [!TIP]

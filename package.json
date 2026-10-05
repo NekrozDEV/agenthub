@@ -1,5 +1,5 @@
 {
-  "name": "agenthub",
+  "name": "open-agenthub",
   "version": "0.1.0",
   "description": "Universal Knowledge Base & Zero-Leak Security Hub for AI Agents (Antigravity, Claude Code, DeepSeek, Hermes, OpenCode, Cursor, Windsurf)",
   "main": "dist/index.js",

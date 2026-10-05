@@ -21,7 +21,7 @@ interface UpdateCache {
 const GITHUB_REPO = 'NekrozDEV/agenthub';
 const RAW_PACKAGE_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/package.json`;
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-const NPM_REGISTRY_URL = 'https://registry.npmjs.org/agenthub/latest';
+const NPM_REGISTRY_URL = 'https://registry.npmjs.org/open-agenthub/latest';
 
 const CACHE_FILE = path.join(os.homedir(), '.agenthub', 'update_cache.json');
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
